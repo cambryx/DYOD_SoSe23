@@ -62,8 +62,6 @@ TEST_F(StorageValueSegmentTest, NullValueHandling) {
   int_value_segment.append(NULL_VALUE);
 
   EXPECT_EQ(int_value_segment[0], AllTypeVariant{1});
-  // FIXME: somehow, NULL_VALUE != NULL_VALUE 🤔
-  // EXPECT_EQ(int_value_segment[1], NULL_VALUE);
   EXPECT_TRUE(variant_is_null(int_value_segment[1]));
 
   EXPECT_FALSE(int_value_segment.is_null(0));
