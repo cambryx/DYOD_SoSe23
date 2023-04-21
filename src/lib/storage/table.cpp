@@ -91,13 +91,13 @@ bool Table::column_nullable(const ColumnID column_id) const {
 }
 
 std::shared_ptr<Chunk> Table::get_chunk(ChunkID chunk_id) {
-  Assert(chunk_id < chunk_count(), "Tried invalid column bounds.");
+  Assert(chunk_id < chunk_count(), "Tried invalid chunk bounds.");
   return _chunks[chunk_id];
 }
 
 std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  Assert(chunk_id < chunk_count(), "Tried invalid chunk bounds.");
+  return _chunks[chunk_id];
 }
 
 void Table::compress_chunk(const ChunkID chunk_id) {
