@@ -76,22 +76,22 @@ const std::vector<std::string>& Table::column_names() const {
 }
 
 const std::string& Table::column_name(const ColumnID column_id) const {
-  Assert(0 <= column_id && column_id < column_count(), "Tried invalid column bounds.");
+  Assert(column_id < column_count(), "Tried invalid column bounds.");
   return _column_names[column_id];
 }
 
 const std::string& Table::column_type(const ColumnID column_id) const {
-  Assert(0 <= column_id && column_id < column_count(), "Tried invalid column bounds.");
+  Assert(column_id < column_count(), "Tried invalid column bounds.");
   return _column_types[column_id];
 }
 
 bool Table::column_nullable(const ColumnID column_id) const {
-  Assert(0 <= column_id && column_id < column_count(), "Tried invalid column bounds.");
+  Assert(column_id < column_count(), "Tried invalid column bounds.");
   return _is_column_nullable[column_id];
 }
 
 std::shared_ptr<Chunk> Table::get_chunk(ChunkID chunk_id) {
-  Assert(0 <= chunk_id && chunk_id < chunk_count(), "Tried invalid column bounds.");
+  Assert(chunk_id < chunk_count(), "Tried invalid column bounds.");
   return _chunks[chunk_id];
 }
 
