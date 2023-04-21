@@ -13,6 +13,7 @@ void Chunk::append(const std::vector<AllTypeVariant>& values) {
   DebugAssert(values.size() == _segments.size(), "Tried to append row with unfitting number of columns.");
   for (ColumnID index{0}; const auto& segment : _segments) {
     segment->append(values[index]);
+    ++index;
   }
 }
 
@@ -21,6 +22,9 @@ std::shared_ptr<AbstractSegment> Chunk::get_segment(const ColumnID column_id) co
 }
 
 ColumnCount Chunk::column_count() const {
+  if (_segments.empty()) {
+    return ColumnCount{0};
+  }
   return static_cast<ColumnCount>(_segments.size());
 }
 

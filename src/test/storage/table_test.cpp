@@ -15,7 +15,6 @@ class StorageTableTest : public BaseTest {
 };
 
 TEST_F(StorageTableTest, ChunkCount) {
-  EXPECT_TRUE(true);
   EXPECT_EQ(table.chunk_count(), 1);
   table.append({4, "Hello,"});
   table.append({6, "world"});
