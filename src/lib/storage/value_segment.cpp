@@ -38,11 +38,11 @@ std::optional<T> ValueSegment<T>::get_typed_value(const ChunkOffset chunk_offset
 
 template <typename T>
 T type_cast_backup(const AllTypeVariant& value) {
-    try {
-      return boost::lexical_cast<T>(value);
-    } catch (...) {
-      Assert(false, "Tried to append inconvertible value to ValueSegment.");
-    }
+  try {
+    return boost::lexical_cast<T>(value);
+  } catch (...) {
+    Assert(false, "Tried to append inconvertible value to ValueSegment.");
+  }
 }
 
 template <typename T>
