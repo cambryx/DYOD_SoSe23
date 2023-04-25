@@ -86,10 +86,13 @@ const std::vector<bool>& ValueSegment<T>::null_values() const {
 
 template <typename T>
 size_t ValueSegment<T>::estimate_memory_usage() const {
-  // Note: vector<bool> packs 8 bools into one byte - we would also expect capacity to return a multiple of 8, so
-  //       there should be no rounding shenanigans going on.
-  // Note: This should probably use .capacity(), but the tests want this.
-  return values().size() * sizeof(T) + null_values().size() / 8;
+  // FIXME: From the tests, this seems to be what upstream wants. However, one could argue that the correct
+  //        implementation is
+  //
+  //            values().capacity() * sizeof(T) + null_values().capacity() / 8
+  //
+  //        to bring the _null_values vector into the equation and include the additional capacity of the vectors.
+  return values().size() * sizeof(T);
 }
 
 // Macro to instantiate the following classes:
