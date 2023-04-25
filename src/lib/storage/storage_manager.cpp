@@ -11,7 +11,7 @@ StorageManager& StorageManager::get() {
 
 void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) {
   Assert(!has_table(name), "Tried to create table with existing name.");
-  _tables[name] = table;
+  _tables[name] = std::move(table);
 }
 
 void StorageManager::drop_table(const std::string& name) {

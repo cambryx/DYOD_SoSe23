@@ -6,6 +6,8 @@
 namespace opossum {
 
 void Chunk::add_segment(const std::shared_ptr<AbstractSegment> segment) {
+    // FIXME: shared_ptr is copied each time, we could remove the `const` and would technically not change the
+    //        interface, but not sure if upstream is okay with that
   _segments.emplace_back(segment);
 }
 
@@ -22,9 +24,6 @@ std::shared_ptr<AbstractSegment> Chunk::get_segment(const ColumnID column_id) co
 }
 
 ColumnCount Chunk::column_count() const {
-  if (_segments.empty()) {
-    return ColumnCount{0};
-  }
   return static_cast<ColumnCount>(_segments.size());
 }
 

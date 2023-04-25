@@ -16,24 +16,24 @@ void Table::add_column_definition(const std::string& name, const std::string& ty
   _is_column_nullable.emplace_back(nullable);
 }
 
-void add_segment(const std::shared_ptr<Chunk>& chunk, const std::string& type, const bool nullable) {
+static void add_value_segment(Chunk& chunk, const std::string& type, const bool nullable) {
   resolve_data_type(type, [&](const auto data_type_t) {
     using ColumnDataType = typename decltype(data_type_t)::type;
     const auto value_segment = std::make_shared<ValueSegment<ColumnDataType>>(nullable);
-    chunk->add_segment(value_segment);
+    chunk.add_segment(std::move(value_segment));
   });
 }
 
 void Table::add_column(const std::string& name, const std::string& type, const bool nullable) {
   Assert(row_count() == 0, "Tried to create column on non-empty table.");
   add_column_definition(name, type, nullable);
-  add_segment(_chunks.back(), type, nullable);
+  add_value_segment(*_chunks.back(), type, nullable);
 }
 
 void Table::create_new_chunk() {
   _chunks.emplace_back(std::make_shared<Chunk>());
   for (ColumnID id{0}; const auto& type : _column_types) {
-    add_segment(_chunks.back(), type, _is_column_nullable[id]);
+    add_value_segment(*_chunks.back(), type, _is_column_nullable[id]);
     ++id;
   }
 }
@@ -59,7 +59,7 @@ ChunkID Table::chunk_count() const {
 
 ColumnID Table::column_id_by_name(const std::string& column_name) const {
   for (ColumnID id{0}; const auto& name : _column_names) {
-    if (name.compare(column_name) == 0) {
+    if (name == column_name) {
       return ColumnID{id};
     }
     ++id;
