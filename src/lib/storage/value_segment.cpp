@@ -49,7 +49,7 @@ void ValueSegment<T>::append(const AllTypeVariant& value) {
       try {
         _values.emplace_back(boost::lexical_cast<T>(value));
       } catch (...) {
-        Assert(false, "Tried to append inconvertible value to ValueSegment.");
+        Fail("Tried to append inconvertible value to ValueSegment.");
       }
     }
 

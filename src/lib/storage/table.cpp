@@ -64,7 +64,7 @@ ColumnID Table::column_id_by_name(const std::string& column_name) const {
     }
     ++id;
   }
-  Assert(false, "Tried to find a non-existent column.");
+  Fail("Tried to find a non-existent column.");
 }
 
 ChunkOffset Table::target_chunk_size() const {
