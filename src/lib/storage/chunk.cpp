@@ -6,8 +6,8 @@
 namespace opossum {
 
 void Chunk::add_segment(const std::shared_ptr<AbstractSegment> segment) {
-    // FIXME: shared_ptr is copied each time, we could remove the `const` and would technically not change the
-    //        interface, but not sure if upstream is okay with that
+  // FIXME: shared_ptr is copied each time, we could remove the `const` and would technically not change the
+  //        interface, but not sure if upstream is okay with that
   _segments.emplace_back(segment);
 }
 
