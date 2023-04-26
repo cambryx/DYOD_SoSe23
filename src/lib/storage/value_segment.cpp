@@ -37,15 +37,6 @@ std::optional<T> ValueSegment<T>::get_typed_value(const ChunkOffset chunk_offset
 }
 
 template <typename T>
-T type_cast_backup(const AllTypeVariant& value) {
-  try {
-    return boost::lexical_cast<T>(value);
-  } catch (...) {
-    Assert(false, "Tried to append inconvertible value to ValueSegment.");
-  }
-}
-
-template <typename T>
 void ValueSegment<T>::append(const AllTypeVariant& value) {
   if (variant_is_null(value)) {
     Assert(is_nullable(), "Tried to append NULL value into non-nullable ValueSegment.");
@@ -55,8 +46,13 @@ void ValueSegment<T>::append(const AllTypeVariant& value) {
     try {
       _values.emplace_back(type_cast<T>(value));
     } catch (...) {
-      _values.emplace_back(type_cast_backup<T>(value));
+      try {
+        _values.emplace_back(boost::lexical_cast<T>(value));
+      } catch (...) {
+        Assert(false, "Tried to append inconvertible value to ValueSegment.");
+      }
     }
+
     if (is_nullable()) {
       _null_values.emplace_back(false);
     }
