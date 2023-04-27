@@ -28,8 +28,6 @@ class AbstractSegment : private Noncopyable {
 
   // Returns the calculated memory usage.
   virtual size_t estimate_memory_usage() const = 0;
-
-  virtual void append(const AllTypeVariant& value) {}
 };
 
 }  // namespace opossum
