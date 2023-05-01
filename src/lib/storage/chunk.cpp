@@ -14,19 +14,38 @@ void Chunk::add_segment(const std::shared_ptr<AbstractSegment> segment) {
   _segments.emplace_back(segment);
 }
 
+template <typename T>
+static bool try_to_append_to_concrete_value_segment(AbstractSegment* segment, const AllTypeVariant& value) {
+  const auto concrete_value_segment = dynamic_cast<ValueSegment<T>*>(segment);
+  if (concrete_value_segment == nullptr) {
+    return false;
+  }
+  concrete_value_segment->append(value);
+  return true;
+}
+
 void Chunk::append(const std::vector<AllTypeVariant>& values) {
   DebugAssert(values.size() == _segments.size(), "Tried to append row with unfitting number of columns.");
-  for (ColumnID index{0}; const auto& segment : _segments) {
-#define TRY_WITH_TYPE(r, _, type)                                              \
-  do {                                                                         \
-    const auto segment_ptr = dynamic_cast<ValueSegment<type>*>(segment.get()); \
-    if (segment_ptr != nullptr) {                                              \
-      segment_ptr->append(values[index]);                                      \
-    }                                                                          \
-  } while (false);
 
+  for (size_t i = 0; i < values.size(); ++i) {
+    // Try all possible instantiations of `ValueSegment`, because we cannot know which subclass is inside the
+    // `AbstractSegment` and still want to use the casting functionality of `ValueSegment`, that is, we cannot assume
+    // that the type of `value` matches this segment.
+
+    const auto& segment = _segments[i];
+    const auto& value = values[i];
+
+#define TRY_WITH_TYPE(_, __, type)                                                                 \
+  {                                                                                                \
+    const bool type_matched = try_to_append_to_concrete_value_segment<type>(segment.get(), value); \
+    if (type_matched) {                                                                            \
+      continue;                                                                                    \
+    }                                                                                              \
+  }
     BOOST_PP_SEQ_FOR_EACH(TRY_WITH_TYPE, _, data_types_macro);
-    ++index;
+#undef TRY_WITH_TYPE
+
+    Fail("Could not append to chunk, because no concrete segment type was found to append to.");
   }
 }
 
