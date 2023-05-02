@@ -27,7 +27,7 @@ static bool try_to_append_to_concrete_value_segment(AbstractSegment* segment, co
 void Chunk::append(const std::vector<AllTypeVariant>& values) {
   DebugAssert(values.size() == _segments.size(), "Tried to append row with unfitting number of columns.");
 
-  for (size_t i = 0; i < values.size(); ++i) {
+  for (size_t i = 0, size = values.size(); i < size; ++i) {
     // Try all possible instantiations of `ValueSegment`, because we cannot know which subclass is inside the
     // `AbstractSegment` and still want to use the casting functionality of `ValueSegment`, that is, we cannot assume
     // that the type of `value` matches this segment.
