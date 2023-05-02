@@ -34,6 +34,7 @@ std::vector<std::string> StorageManager::table_names() const {
   for (const auto& [name, table] : _tables) {
     table_names.emplace_back(name);
   }
+  std::sort(table_names.begin(), table_names.end());
   return table_names;
 }
 
