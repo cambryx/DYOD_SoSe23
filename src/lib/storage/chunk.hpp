@@ -22,7 +22,7 @@ class Chunk : private Noncopyable {
   // Adds a segment to the "right" of the chunk.
   void add_segment(const std::shared_ptr<AbstractSegment> segment);
 
-  // Returns the number of  (cannot exceed ColumnID (uint16_t)).
+  // Returns the number of columns (cannot exceed ColumnID (uint16_t)).
   ColumnCount column_count() const;
 
   // Returns the number of rows (cannot exceed ChunkOffset (uint32_t)).
