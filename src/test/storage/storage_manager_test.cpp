@@ -48,8 +48,7 @@ TEST_F(StorageStorageManagerTest, HasTable) {
 
 TEST_F(StorageStorageManagerTest, HasTableNames) {
   auto& storage_manager = StorageManager::get();
-  const auto table_names = std::vector<std::string>{"first_table", "second_table"};
-  EXPECT_EQ(storage_manager.table_names(), table_names);
+  EXPECT_EQ(storage_manager.table_names(), std::vector<std::string>({"first_table", "second_table"}));
 }
 
 TEST_F(StorageStorageManagerTest, PrintTable) {
