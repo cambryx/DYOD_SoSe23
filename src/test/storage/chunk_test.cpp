@@ -3,6 +3,7 @@
 #include "resolve_type.hpp"
 #include "storage/abstract_segment.hpp"
 #include "storage/chunk.hpp"
+#include "utils/assert.hpp"
 
 namespace opossum {
 
@@ -43,6 +44,26 @@ TEST_F(StorageChunkTest, AddValuesToChunk) {
     EXPECT_THROW(chunk.append({4, "val", 3}), std::logic_error);
     EXPECT_EQ(chunk.size(), 4);
   }
+}
+
+TEST_F(StorageChunkTest, AddValuesToUnknownSegment) {
+  // Segment, that `Chunk::append` does not know about and hence cannot append into.
+  struct UnknownSegment : AbstractSegment {
+    AllTypeVariant operator[](ChunkOffset /*chunk_offset*/) const override {
+      Fail("Dummy segment.");
+    }
+
+    ChunkOffset size() const override {
+      Fail("Dummy segment.");
+    }
+
+    size_t estimate_memory_usage() const override {
+      Fail("Dummy segment.");
+    }
+  };
+
+  chunk.add_segment(std::make_shared<UnknownSegment>());
+  EXPECT_THROW(chunk.append({42}), std::logic_error);
 }
 
 TEST_F(StorageChunkTest, RetrieveSegment) {
