@@ -19,13 +19,13 @@ AllTypeVariant ValueSegment<T>::operator[](const ChunkOffset chunk_offset) const
 
 template <typename T>
 bool ValueSegment<T>::is_null(const ChunkOffset chunk_offset) const {
-  return is_nullable() && null_values()[chunk_offset];
+  return is_nullable() && null_values().at(chunk_offset);
 }
 
 template <typename T>
 T ValueSegment<T>::get(const ChunkOffset chunk_offset) const {
   Assert(!is_null(chunk_offset), "Tried to .get a NULL value from a ValueSegment.");
-  return values()[chunk_offset];
+  return values().at(chunk_offset);
 }
 
 template <typename T>

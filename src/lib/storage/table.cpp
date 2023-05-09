@@ -71,28 +71,23 @@ const std::vector<std::string>& Table::column_names() const {
 }
 
 const std::string& Table::column_name(const ColumnID column_id) const {
-  Assert(column_id < column_count(), "Tried invalid column bounds.");
-  return _column_names[column_id];
+  return _column_names.at(column_id);
 }
 
 const std::string& Table::column_type(const ColumnID column_id) const {
-  Assert(column_id < column_count(), "Tried invalid column bounds.");
-  return _column_types[column_id];
+  return _column_types.at(column_id);
 }
 
 bool Table::column_nullable(const ColumnID column_id) const {
-  Assert(column_id < column_count(), "Tried invalid column bounds.");
-  return _is_column_nullable[column_id];
+  return _is_column_nullable.at(column_id);
 }
 
 std::shared_ptr<Chunk> Table::get_chunk(ChunkID chunk_id) {
-  Assert(chunk_id < chunk_count(), "Tried invalid chunk bounds.");
-  return _chunks[chunk_id];
+  return _chunks.at(chunk_id);
 }
 
 std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
-  Assert(chunk_id < chunk_count(), "Tried invalid chunk bounds.");
-  return _chunks[chunk_id];
+  return _chunks.at(chunk_id);
 }
 
 // GCOVR_EXCL_START
