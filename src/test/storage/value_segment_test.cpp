@@ -29,15 +29,15 @@ TEST_F(StorageValueSegmentTest, AppendValueOfSameType) {
 }
 
 TEST_F(StorageValueSegmentTest, AppendValueOfDifferentType) {
-  int_value_segment.append(3.14);
+  EXPECT_NO_THROW(int_value_segment.append(3.14));
   EXPECT_EQ(int_value_segment.size(), 1);
   EXPECT_THROW(int_value_segment.append("Hi"), std::logic_error);
 
-  string_value_segment.append(3);
-  string_value_segment.append(4.44);
+  EXPECT_NO_THROW(string_value_segment.append(3));
+  EXPECT_NO_THROW(string_value_segment.append(4.44));
   EXPECT_EQ(string_value_segment.size(), 2);
 
-  double_value_segment.append(4);
+  EXPECT_NO_THROW(double_value_segment.append(4));
   EXPECT_EQ(double_value_segment.size(), 1);
   EXPECT_THROW(double_value_segment.append("Hi"), std::logic_error);
 }
@@ -62,7 +62,7 @@ TEST_F(StorageValueSegmentTest, NullValueHandling) {
   int_value_segment.append(NULL_VALUE);
 
   EXPECT_EQ(int_value_segment[0], AllTypeVariant{1});
-  EXPECT_EQ(int_value_segment[1], NULL_VALUE);
+  EXPECT_TRUE(variant_is_null(int_value_segment[1]));
 
   EXPECT_FALSE(int_value_segment.is_null(0));
   EXPECT_TRUE(int_value_segment.is_null(1));

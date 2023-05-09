@@ -56,7 +56,7 @@ IncludeCategories:
 IndentCaseLabels: true
 IndentWidth:     2
 IndentWrappedFunctionNames: false
-# InsertBraces: true     TODO(anyone): enable when clang15 is widely used.
+InsertBraces: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 MacroBlockBegin: ''
 MacroBlockEnd:   ''

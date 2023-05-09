@@ -3,6 +3,7 @@
 #include "resolve_type.hpp"
 #include "storage/abstract_segment.hpp"
 #include "storage/chunk.hpp"
+#include "utils/assert.hpp"
 
 namespace opossum {
 
@@ -45,6 +46,26 @@ TEST_F(StorageChunkTest, AddValuesToChunk) {
   }
 }
 
+TEST_F(StorageChunkTest, AddValuesToUnknownSegment) {
+  // Segment, that `Chunk::append` does not know about and hence cannot append into.
+  struct UnknownSegment : AbstractSegment {
+    AllTypeVariant operator[](ChunkOffset /*chunk_offset*/) const override {
+      Fail("Dummy segment.");
+    }
+
+    ChunkOffset size() const override {
+      Fail("Dummy segment.");
+    }
+
+    size_t estimate_memory_usage() const override {
+      Fail("Dummy segment.");
+    }
+  };
+
+  chunk.add_segment(std::make_shared<UnknownSegment>());
+  EXPECT_THROW(chunk.append({42}), std::logic_error);
+}
+
 TEST_F(StorageChunkTest, RetrieveSegment) {
   chunk.add_segment(int_value_segment);
   chunk.add_segment(string_value_segment);
@@ -52,6 +73,12 @@ TEST_F(StorageChunkTest, RetrieveSegment) {
 
   auto segment = chunk.get_segment(ColumnID{0});
   EXPECT_EQ(segment->size(), 4);
+}
+
+TEST_F(StorageChunkTest, ColumnCount) {
+  chunk.add_segment(int_value_segment);
+  chunk.add_segment(string_value_segment);
+  EXPECT_EQ(chunk.column_count(), 2);
 }
 
 }  // namespace opossum

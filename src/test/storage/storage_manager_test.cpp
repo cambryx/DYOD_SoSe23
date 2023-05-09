@@ -46,4 +46,17 @@ TEST_F(StorageStorageManagerTest, HasTable) {
   EXPECT_EQ(storage_manager.has_table("first_table"), true);
 }
 
+TEST_F(StorageStorageManagerTest, HasTableNames) {
+  auto& storage_manager = StorageManager::get();
+  EXPECT_EQ(storage_manager.table_names(), std::vector<std::string>({"first_table", "second_table"}));
+}
+
+TEST_F(StorageStorageManagerTest, PrintTable) {
+  auto& storage_manager = StorageManager::get();
+  std::ostringstream print_stream;
+  storage_manager.print(print_stream);
+  EXPECT_EQ(print_stream.str(),
+            "(\"second_table\", 0 columns, 0 rows, 1 chunks)\n(\"first_table\", 0 columns, 0 rows, 1 chunks)\n");
+}
+
 }  // namespace opossum
