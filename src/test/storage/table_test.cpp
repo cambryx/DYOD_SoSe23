@@ -29,9 +29,9 @@ TEST_F(StorageTableTest, GetChunk) {
   table.append({3, "!"});
   table.get_chunk(ChunkID{1});
 
-  const auto& table_reference = table;
+  const auto& table_const_reference = table;
   const auto first_chunk = table.get_chunk(ChunkID{0});
-  const auto second_chunk = table_reference.get_chunk(ChunkID{1});
+  const auto second_chunk = table_const_reference.get_chunk(ChunkID{1});
 
   EXPECT_EQ(first_chunk->size(), 2);
   EXPECT_EQ(second_chunk->size(), 1);

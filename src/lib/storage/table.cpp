@@ -32,9 +32,8 @@ void Table::add_column(const std::string& name, const std::string& type, const b
 
 void Table::create_new_chunk() {
   _chunks.emplace_back(std::make_shared<Chunk>());
-  for (ColumnID id{0}; const auto& type : _column_types) {
-    add_value_segment(*_chunks.back(), type, _is_column_nullable[id]);
-    ++id;
+  for (auto column_index = ColumnID{0}; column_index < column_count(); ++column_index) {
+    add_value_segment(*_chunks.back(), _column_types[column_index], _is_column_nullable[column_index]);
   }
 }
 
@@ -46,7 +45,7 @@ void Table::append(const std::vector<AllTypeVariant>& values) {
 }
 
 ColumnCount Table::column_count() const {
-  return _chunks.front()->column_count();
+  return static_cast<ColumnCount>(_column_names.size());
 }
 
 uint64_t Table::row_count() const {
@@ -58,13 +57,9 @@ ChunkID Table::chunk_count() const {
 }
 
 ColumnID Table::column_id_by_name(const std::string& column_name) const {
-  for (ColumnID id{0}; const auto& name : _column_names) {
-    if (name == column_name) {
-      return ColumnID{id};
-    }
-    ++id;
-  }
-  Fail("Tried to find a non-existent column.");
+  const auto iterator = std::ranges::find(_column_names, column_name);
+  Assert(iterator != _column_names.end(), "Tried to find a non-existent column.");
+  return static_cast<ColumnID>(std::distance(_column_names.begin(), iterator));
 }
 
 ChunkOffset Table::target_chunk_size() const {

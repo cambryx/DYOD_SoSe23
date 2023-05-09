@@ -17,7 +17,7 @@ void Chunk::add_segment(const std::shared_ptr<AbstractSegment> segment) {
 template <typename T>
 static bool try_to_append_to_concrete_value_segment(AbstractSegment* segment, const AllTypeVariant& value) {
   const auto concrete_value_segment = dynamic_cast<ValueSegment<T>*>(segment);
-  if (concrete_value_segment == nullptr) {
+  if (!concrete_value_segment) {
     return false;
   }
   concrete_value_segment->append(value);
@@ -27,13 +27,13 @@ static bool try_to_append_to_concrete_value_segment(AbstractSegment* segment, co
 void Chunk::append(const std::vector<AllTypeVariant>& values) {
   DebugAssert(values.size() == _segments.size(), "Tried to append row with unfitting number of columns.");
 
-  for (size_t i = 0, size = values.size(); i < size; ++i) {
+  for (auto segment_index = size_t{0}, size = values.size(); segment_index < size; ++segment_index) {
     // Try all possible instantiations of `ValueSegment`, because we cannot know which subclass is inside the
     // `AbstractSegment` and still want to use the casting functionality of `ValueSegment`, that is, we cannot assume
     // that the type of `value` matches this segment.
 
-    const auto& segment = _segments[i];
-    const auto& value = values[i];
+    const auto& segment = _segments[segment_index];
+    const auto& value = values[segment_index];
 
 #define TRY_WITH_TYPE(_, __, type)                                                                 \
   {                                                                                                \
