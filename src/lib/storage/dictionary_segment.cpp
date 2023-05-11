@@ -1,54 +1,117 @@
-#include "dictionary_segment.hpp"
+#include <bit>
+#include <map>
+#include <memory>
+#include <string>
 
+#include "all_type_variant.hpp"
+#include "dictionary_segment.hpp"
+#include "fixed_width_integer_vector.hpp"
 #include "utils/assert.hpp"
+#include "value_segment.hpp"
 
 namespace opossum {
 
+namespace {
+
+std::shared_ptr<AbstractAttributeVector> make_fitting_attribute_vector(size_t size, size_t highest_value_id) {
+  /*  TODO: does not compile yet
+  const auto bits = std::bit_width(highest_value_id);
+  if (bits <= 8) {
+    return std::make_shared<FixedWidthIntegerVector<uint8_t>>(size);
+  }
+  if (bits <= 16) {
+    return make_shared<FixedWidthIntegerVector<uint16_t>>(size);
+  }
+  if (bits <= 32) {
+    return make_shared<FixedWidthIntegerVector<uint32_t>>(size);
+  }
+  */
+
+  Fail("Cannot construct FixedWidthIntegerVector for value ids with more than 32 bits.");
+}
+
+};  // namespace
+
 template <typename T>
 DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& abstract_segment) {
-  // Implementation goes here
+  const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(abstract_segment);
+  Assert(value_segment, "Tried to create DictionarySegment<T> from abstract segment that was not ValueSegment<T>.");
+
+  const auto& values = value_segment->values();
+  auto value_to_id = std::map<T, ValueID>();
+  for (auto value_index = size_t{0}, size = values.size(); value_index < size; ++value_index) {
+    if (!value_segment->is_null(value_index)) {
+      value_to_id.emplace(values[value_index], 0);
+    }
+  }
+
+  // Start at 1, because 0 is reserved for NULL
+  auto next_value_id = ValueID(1);
+  for (auto& [value, value_id] : value_to_id) {
+    value_id = next_value_id++;
+  }
+
+  const auto attribute_vector = make_fitting_attribute_vector(values.size(), next_value_id - 1);
+  for (auto value_index = size_t{0}, size = values.size(); value_index < size; ++value_index) {
+    if (value_segment->is_null(value_index)) {
+      attribute_vector->set(value_index, null_value_id());
+    } else {
+      attribute_vector->set(value_index, value_to_id.at(values[value_index]));
+    }
+  }
+
+  for (auto& [value, value_id] : value_to_id) {
+    // This offsets the value_id by one, because value id 0 is reserved for NULL.
+    _dictionary.emplace_back(std::move(value));
+  }
+  _attribute_vector = attribute_vector;
 }
 
 template <typename T>
 AllTypeVariant DictionarySegment<T>::operator[](const ChunkOffset chunk_offset) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  if (const auto optional_value = get_typed_value(chunk_offset)) {
+    return *optional_value;
+  }
+  return NULL_VALUE;
 }
 
 template <typename T>
 T DictionarySegment<T>::get(const ChunkOffset chunk_offset) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  const auto optional_value = get_typed_value(chunk_offset);
+  Assert(optional_value.has_value(),
+         "Tried to `.get` value at offset " + std::to_string(chunk_offset) + " that was NULL");
+  return *optional_value;
 }
 
 template <typename T>
 std::optional<T> DictionarySegment<T>::get_typed_value(const ChunkOffset chunk_offset) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  const auto value_id = attribute_vector()->get(chunk_offset);
+  if (value_id == null_value_id()) {
+    return std::nullopt;
+  }
+
+  return value_of_value_id(value_id);
 }
 
 template <typename T>
 const std::vector<T>& DictionarySegment<T>::dictionary() const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  return _dictionary;
 }
 
 template <typename T>
 std::shared_ptr<const AbstractAttributeVector> DictionarySegment<T>::attribute_vector() const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  return _attribute_vector;
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::null_value_id() const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  return ValueID{0};
 }
 
 template <typename T>
 const T DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  Assert(value_id != null_value_id(), "Tried to get value for null_value_id");
+  return dictionary().at(value_id - 1);
 }
 
 template <typename T>
@@ -77,14 +140,12 @@ ValueID DictionarySegment<T>::upper_bound(const AllTypeVariant& value) const {
 
 template <typename T>
 ChunkOffset DictionarySegment<T>::unique_values_count() const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  return dictionary().size();
 }
 
 template <typename T>
 ChunkOffset DictionarySegment<T>::size() const {
-  // Implementation goes here
-  return ChunkOffset{};
+  return static_cast<ChunkOffset>(attribute_vector()->size());
 }
 
 template <typename T>
