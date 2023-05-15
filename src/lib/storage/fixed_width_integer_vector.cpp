@@ -7,7 +7,7 @@ FixedWidthIntegerVector<T>::FixedWidthIntegerVector(size_t size) : _value_ids(si
 
 template <std::unsigned_integral T>
 ValueID FixedWidthIntegerVector<T>::get(const size_t index) const {
-  return _value_ids.at(index);
+  return ValueID{_value_ids.at(index)};
 }
 
 template <std::unsigned_integral T>

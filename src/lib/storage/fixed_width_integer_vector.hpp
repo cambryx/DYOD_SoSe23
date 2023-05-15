@@ -8,7 +8,8 @@
 namespace opossum {
 
 template <std::unsigned_integral T>
-class FixedWidthIntegerVector final : AbstractAttributeVector {
+class FixedWidthIntegerVector final : public AbstractAttributeVector {
+ public:
   explicit FixedWidthIntegerVector(size_t size);
 
   // Returns the value id at a given position.
@@ -27,4 +28,7 @@ class FixedWidthIntegerVector final : AbstractAttributeVector {
   std::vector<T> _value_ids;
 };
 
+template class FixedWidthIntegerVector<uint8_t>;
+template class FixedWidthIntegerVector<uint16_t>;
+template class FixedWidthIntegerVector<uint32_t>;
 };  // namespace opossum
