@@ -110,7 +110,7 @@ ValueID DictionarySegment<T>::null_value_id() const {
 
 template <typename T>
 const T DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
-  Assert(value_id != null_value_id(), "Tried to get value for null_value_id.");
+  Assert(_is_nullable || value_id != null_value_id(), "Tried to get value for null_value_id.");
   return dictionary().at(value_id - (_is_nullable ? 1 : 0));
 }
 

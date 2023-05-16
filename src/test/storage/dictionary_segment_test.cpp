@@ -10,6 +10,7 @@ namespace opossum {
 class StorageDictionarySegmentTest : public BaseTest {
  protected:
   std::shared_ptr<ValueSegment<int32_t>> value_segment_int{std::make_shared<ValueSegment<int32_t>>()};
+  std::shared_ptr<ValueSegment<int64_t>> value_segment_big_int{std::make_shared<ValueSegment<int64_t>>()};
   std::shared_ptr<ValueSegment<std::string>> value_segment_str{std::make_shared<ValueSegment<std::string>>(true)};
 };
 
@@ -53,21 +54,79 @@ TEST_F(StorageDictionarySegmentTest, LowerUpperBound) {
     using Type = typename decltype(type)::type;
     segment = std::make_shared<DictionarySegment<Type>>(value_segment_int);
   });
-  auto dict_segment = std::dynamic_pointer_cast<DictionarySegment<int32_t>>(segment);
 
-  EXPECT_EQ(dict_segment->lower_bound(4), ValueID{2});
-  EXPECT_EQ(dict_segment->upper_bound(4), ValueID{3});
+  auto dict_segment_int = std::dynamic_pointer_cast<DictionarySegment<int32_t>>(segment);
 
-  EXPECT_EQ(dict_segment->lower_bound(AllTypeVariant{4}), ValueID{2});
-  EXPECT_EQ(dict_segment->upper_bound(AllTypeVariant{4}), ValueID{3});
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
 
-  EXPECT_EQ(dict_segment->lower_bound(5), ValueID{3});
-  EXPECT_EQ(dict_segment->upper_bound(5), ValueID{3});
+  EXPECT_EQ(dict_segment_int->lower_bound(4), ValueID{2});
+  EXPECT_EQ(dict_segment_int->upper_bound(4), ValueID{3});
 
-  EXPECT_EQ(dict_segment->lower_bound(15), INVALID_VALUE_ID);
-  EXPECT_EQ(dict_segment->upper_bound(15), INVALID_VALUE_ID);
+  EXPECT_EQ(dict_segment_int->lower_bound(AllTypeVariant{4}), ValueID{2});
+  EXPECT_EQ(dict_segment_int->upper_bound(AllTypeVariant{4}), ValueID{3});
+
+  EXPECT_EQ(dict_segment_int->lower_bound(5), ValueID{3});
+  EXPECT_EQ(dict_segment_int->upper_bound(5), ValueID{3});
+
+  EXPECT_EQ(dict_segment_int->lower_bound(15), INVALID_VALUE_ID);
+  EXPECT_EQ(dict_segment_int->upper_bound(15), INVALID_VALUE_ID);
+
+  EXPECT_THROW(dict_segment_int->lower_bound(AllTypeVariant{"Hasso"}), std::logic_error);
+  EXPECT_THROW(dict_segment_int->upper_bound(AllTypeVariant{"Opossum"}), std::logic_error);
+
+  EXPECT_THROW(dict_segment_int->lower_bound(NULL_VALUE), std::logic_error);
+  EXPECT_THROW(dict_segment_int->upper_bound(NULL_VALUE), std::logic_error);
+
+  EXPECT_EQ(dict_segment_str->lower_bound(NULL_VALUE), dict_segment_str->null_value_id());
+  EXPECT_EQ(dict_segment_str->upper_bound(NULL_VALUE), dict_segment_str->null_value_id());
 }
 
-// TODO(student): You should add some more tests here (full coverage would be appreciated) and possibly in other files.
+TEST_F(StorageDictionarySegmentTest, ValueOfValueID) {
+  value_segment_int->append(25);
+  value_segment_int->append(100);
+
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{1}), std::string("Bill"));
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{2}), std::string("Steve"));
+
+  EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{0}), int32_t{25});
+  EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{1}), int32_t{100});
+
+  EXPECT_THROW(dict_segment_str->value_of_value_id(dict_segment_str->null_value_id()), std::logic_error);
+  EXPECT_NO_THROW(dict_segment_int->value_of_value_id(dict_segment_str->null_value_id()));
+}
+
+TEST_F(StorageDictionarySegmentTest, Access) {
+  value_segment_int->append(25);
+  value_segment_int->append(100);
+
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+  value_segment_str->append(NULL_VALUE);
+
+  EXPECT_THROW(value_segment_int->append(NULL_VALUE), std::logic_error);
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+
+  EXPECT_EQ(dict_segment_int->get(0), uint8_t{25});
+  EXPECT_EQ(dict_segment_str->get(0), std::string("Bill"));
+
+
+  EXPECT_EQ(dict_segment_int->operator[](0), AllTypeVariant{25});
+  EXPECT_EQ(dict_segment_int->operator[](1), AllTypeVariant{100});
+
+  EXPECT_EQ(value_segment_str->operator[](0), AllTypeVariant{"Bill"});
+  EXPECT_EQ(value_segment_str->operator[](1), AllTypeVariant{"Steve"});
+
+  EXPECT_TRUE(variant_is_null(dict_segment_str->operator[](2)));
+}
 
 }  // namespace opossum
