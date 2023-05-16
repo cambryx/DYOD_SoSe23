@@ -25,4 +25,8 @@ AttributeVectorWidth FixedWidthIntegerVector<T>::width() const {
   return sizeof(T);
 }
 
+template class FixedWidthIntegerVector<uint8_t>;
+template class FixedWidthIntegerVector<uint16_t>;
+template class FixedWidthIntegerVector<uint32_t>;
+
 }  // namespace opossum

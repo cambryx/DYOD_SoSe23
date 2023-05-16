@@ -28,7 +28,8 @@ class FixedWidthIntegerVector final : public AbstractAttributeVector {
   std::vector<T> _value_ids;
 };
 
-template class FixedWidthIntegerVector<uint8_t>;
-template class FixedWidthIntegerVector<uint16_t>;
-template class FixedWidthIntegerVector<uint32_t>;
+extern template class FixedWidthIntegerVector<uint8_t>;
+extern template class FixedWidthIntegerVector<uint16_t>;
+extern template class FixedWidthIntegerVector<uint32_t>;
+
 };  // namespace opossum
