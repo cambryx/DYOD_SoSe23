@@ -6,6 +6,7 @@
 #include "all_type_variant.hpp"
 #include "dictionary_segment.hpp"
 #include "fixed_width_integer_vector.hpp"
+#include "type_cast.hpp"
 #include "utils/assert.hpp"
 #include "value_segment.hpp"
 
@@ -34,6 +35,8 @@ template <typename T>
 DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& abstract_segment) {
   const auto value_segment = std::dynamic_pointer_cast<ValueSegment<T>>(abstract_segment);
   Assert(value_segment, "Tried to create DictionarySegment<T> from abstract segment that was not ValueSegment<T>.");
+  _is_nullable = value_segment->is_nullable();
+
   const auto& values = value_segment->values();
   auto value_to_id = std::map<T, ValueID>();
   for (auto value_index = size_t{0}, size = values.size(); value_index < size; ++value_index) {
@@ -43,14 +46,14 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
   }
 
   // Start at 1, because 0 is reserved for NULL
-  auto next_value_id = ValueID(1);
+  auto next_value_id = _is_nullable ? ValueID{1} : ValueID{0};
   for (auto& [value, value_id] : value_to_id) {
     value_id = next_value_id++;
   }
 
   const auto attribute_vector = make_fitting_attribute_vector(values.size(), next_value_id - 1);
   for (auto value_index = size_t{0}, size = values.size(); value_index < size; ++value_index) {
-    if (value_segment->is_null(value_index)) {
+    if (_is_nullable && value_segment->is_null(value_index)) {
       attribute_vector->set(value_index, null_value_id());
     } else {
       attribute_vector->set(value_index, value_to_id.at(values[value_index]));
@@ -58,7 +61,7 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
   }
 
   for (auto& [value, value_id] : value_to_id) {
-    // This offsets the value_id by one, because value id 0 is reserved for NULL.
+    // This offsets the value_id by one if _is_nullable is true, because value id 0 is reserved for NULL.
     _dictionary.emplace_back(std::move(value));
   }
   _attribute_vector = attribute_vector;
@@ -76,7 +79,7 @@ template <typename T>
 T DictionarySegment<T>::get(const ChunkOffset chunk_offset) const {
   const auto optional_value = get_typed_value(chunk_offset);
   Assert(optional_value.has_value(),
-         "Tried to `.get` value at offset " + std::to_string(chunk_offset) + " that was NULL");
+         "Tried to `.get` value at offset " + std::to_string(chunk_offset) + " that was NULL.");
   return *optional_value;
 }
 
@@ -102,37 +105,57 @@ std::shared_ptr<const AbstractAttributeVector> DictionarySegment<T>::attribute_v
 
 template <typename T>
 ValueID DictionarySegment<T>::null_value_id() const {
-  return ValueID{0};
+  return _is_nullable ? ValueID{0} : INVALID_VALUE_ID;
 }
 
 template <typename T>
 const T DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
-  Assert(value_id != null_value_id(), "Tried to get value for null_value_id");
-  return dictionary().at(value_id - 1);
+  Assert(value_id != null_value_id(), "Tried to get value for null_value_id.");
+  return dictionary().at(value_id - (_is_nullable ? 1 : 0));
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::lower_bound(const T value) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  const auto lower = std::lower_bound(_dictionary.begin(), _dictionary.end(), value);
+  if (lower == _dictionary.end()) {
+    return INVALID_VALUE_ID;
+  }
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), lower) + (_is_nullable ? 1 : 0));
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::lower_bound(const AllTypeVariant& value) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  if (variant_is_null(value)) {
+    Assert(_is_nullable, "DictionarySegment is not nullable.");
+    return null_value_id();
+  }
+  try {
+    return lower_bound(type_cast<T>(value));
+  } catch (...) {
+    Fail("Tried lower_bound for inconvertible value to DictionarySegment.");
+  }
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::upper_bound(const T value) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  const auto upper = std::upper_bound(_dictionary.begin(), _dictionary.end(), value);
+  if (upper == _dictionary.end()) {
+    return INVALID_VALUE_ID;
+  }
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), upper) + (_is_nullable ? 1 : 0));
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::upper_bound(const AllTypeVariant& value) const {
-  // Implementation goes here
-  Fail("Implementation is missing.");
+  if (variant_is_null(value)) {
+    Assert(_is_nullable, "DictionarySegment is not nullable.");
+    return null_value_id();
+  }
+  try {
+    return upper_bound(type_cast<T>(value));
+  } catch (...) {
+    Fail("Tried upper_bound for inconvertible value to DictionarySegment.");
+  }
 }
 
 template <typename T>

@@ -63,6 +63,7 @@ class DictionarySegment : public AbstractSegment {
  protected:
   std::vector<T> _dictionary;
   std::shared_ptr<AbstractAttributeVector> _attribute_vector;
+  bool _is_nullable;
 };
 
 EXPLICITLY_DECLARE_DATA_TYPES(DictionarySegment);
