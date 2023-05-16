@@ -45,7 +45,7 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
     }
   }
 
-  // Start at 1, because 0 is reserved for NULL
+  // Start at 1 if _is_nullable, because 0 is reserved for NULL
   auto next_value_id = _is_nullable ? ValueID{1} : ValueID{0};
   for (auto& [value, value_id] : value_to_id) {
     value_id = next_value_id++;

@@ -1,12 +1,14 @@
 #include "table.hpp"
 
+#include "dictionary_segment.hpp"
 #include "resolve_type.hpp"
 #include "utils/assert.hpp"
 #include "value_segment.hpp"
 
 namespace opossum {
 
-Table::Table(const ChunkOffset target_chunk_size) : _chunk_size{target_chunk_size} {
+Table::Table(const ChunkOffset target_chunk_size)
+    : _chunk_size{target_chunk_size}, _last_chunk_modifiable{true}, _row_count_before_active_chunk{0} {
   create_new_chunk();
 }
 
@@ -38,7 +40,12 @@ void Table::create_new_chunk() {
 }
 
 void Table::append(const std::vector<AllTypeVariant>& values) {
-  if (_chunks.back()->size() == target_chunk_size()) {
+  if (!_last_chunk_modifiable || _chunks.back()->size() == target_chunk_size()) {
+    if (_last_chunk_modifiable) {
+      _row_count_before_active_chunk += _chunks.back()->size();
+    } else {
+      _last_chunk_modifiable = true;
+    }
     create_new_chunk();
   }
   _chunks.back()->append(values);
@@ -49,7 +56,11 @@ ColumnCount Table::column_count() const {
 }
 
 uint64_t Table::row_count() const {
-  return (chunk_count() - 1) * target_chunk_size() + _chunks.back()->size();
+  auto row_count = _row_count_before_active_chunk;
+  if (_last_chunk_modifiable) {
+    row_count += _chunks.back()->size();
+  }
+  return row_count;
 }
 
 ChunkID Table::chunk_count() const {
@@ -90,12 +101,26 @@ std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
   return _chunks.at(chunk_id);
 }
 
-// GCOVR_EXCL_START
 void Table::compress_chunk(const ChunkID chunk_id) {
-  // Implementation goes here
-  Fail("Implementation is missing.");
-}
+  auto compressed_chunk = std::make_shared<Chunk>();
+  const auto chunk = get_chunk(chunk_id);
+  const auto column_count = chunk->column_count();
 
-// GCOVR_EXCL_STOP
+  for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
+    /*
+      ToDo: Multithreading
+    */
+    const auto segment = chunk->get_segment(column_id);
+    resolve_data_type(column_type(column_id), [&](auto type) {
+      using DataType = typename decltype(type)::type;
+      const auto dict_segment = std::make_shared<DictionarySegment<DataType>>(segment);
+      compressed_chunk->add_segment(std::move(dict_segment));
+    });
+  }
+
+  _chunks.at(chunk_id) = compressed_chunk;
+  _row_count_before_active_chunk += chunk->size();
+  _last_chunk_modifiable = false;
+}
 
 }  // namespace opossum
