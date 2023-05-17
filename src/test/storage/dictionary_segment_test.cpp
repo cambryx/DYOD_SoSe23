@@ -152,4 +152,39 @@ TEST_F(StorageDictionarySegmentTest, MemoryEstimation) {
   EXPECT_EQ(dict_segment_int->estimate_memory_usage(), 300 * 2 + 300 * 4);
 }
 
+TEST_F(StorageDictionarySegmentTest, AttributeVectorWidth) {
+  for (auto i = 0; i < 256; ++i) {
+    value_segment_big_int->append(i);
+  }
+  auto dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 1);
+
+  value_segment_big_int->append(256);
+
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 2);
+
+  for (auto i = 257; i < 65536; ++i) {
+    value_segment_big_int->append(i);
+  }
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 2);
+
+  value_segment_big_int->append(65536);
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 4);
+
+  // For nullable ValueSegments the border between different types is offset by 1 because of null_value_id
+  for (auto i = 0; i < 255; ++i) {
+    value_segment_str->append(i);
+  }
+
+  auto dict_segment_string = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+  EXPECT_EQ(dict_segment_string->attribute_vector()->width(), 1);
+
+  value_segment_str->append("255");
+  dict_segment_string = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+  EXPECT_EQ(dict_segment_string->attribute_vector()->width(), 2);
+}
+
 }  // namespace opossum
