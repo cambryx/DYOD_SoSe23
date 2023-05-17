@@ -16,17 +16,14 @@ namespace {
 
 std::shared_ptr<AbstractAttributeVector> make_fitting_attribute_vector(size_t size, size_t highest_value_id) {
   const auto bits = std::bit_width(highest_value_id);
+  Assert(bits <= 32, "Cannot construct FixedWidthIntegerVector for value ids with more than 32 bits.");
   if (bits <= 8) {
     return std::make_shared<FixedWidthIntegerVector<uint8_t>>(size);
   }
   if (bits <= 16) {
     return std::make_shared<FixedWidthIntegerVector<uint16_t>>(size);
   }
-  if (bits <= 32) {
-    return std::make_shared<FixedWidthIntegerVector<uint32_t>>(size);
-  }
-
-  Fail("Cannot construct FixedWidthIntegerVector for value ids with more than 32 bits.");
+  return std::make_shared<FixedWidthIntegerVector<uint32_t>>(size);
 }
 
 };  // namespace
