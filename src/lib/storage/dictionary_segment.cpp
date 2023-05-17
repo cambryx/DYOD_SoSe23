@@ -170,7 +170,9 @@ ChunkOffset DictionarySegment<T>::size() const {
 
 template <typename T>
 size_t DictionarySegment<T>::estimate_memory_usage() const {
-  return size_t{};
+  const auto attribute_vector_memory = attribute_vector()->size() * attribute_vector()->width();
+  const auto dictionary_memory = dictionary().size() * sizeof(T);
+  return attribute_vector_memory + dictionary_memory;
 }
 
 EXPLICITLY_INSTANTIATE_DATA_TYPES(DictionarySegment);
