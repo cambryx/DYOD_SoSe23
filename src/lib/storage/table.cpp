@@ -8,8 +8,8 @@
 
 namespace opossum {
 
-Table::Table(const ChunkOffset target_chunk_size)
-    : _chunk_size{target_chunk_size}, _last_chunk_modifiable{true}, _row_count_before_active_chunk{0} {
+Table::Table(const ChunkOffset init_target_chunk_size)
+    : _target_chunk_size{init_target_chunk_size}, _last_chunk_modifiable{true}, _row_count_before_active_chunk{0} {
   create_new_chunk();
 }
 
@@ -75,7 +75,7 @@ ColumnID Table::column_id_by_name(const std::string& column_name) const {
 }
 
 ChunkOffset Table::target_chunk_size() const {
-  return _chunk_size;
+  return _target_chunk_size;
 }
 
 const std::vector<std::string>& Table::column_names() const {

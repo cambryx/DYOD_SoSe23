@@ -13,7 +13,7 @@ class Table : private Noncopyable {
  public:
   // Creates a table. The parameter specifies the maximum chunk size, i.e., partition size default is the maximum chunk
   // size minus 1. A table always holds at least one chunk.
-  explicit Table(const ChunkOffset target_chunk_size = std::numeric_limits<ChunkOffset>::max() - 1);
+  explicit Table(const ChunkOffset init_target_chunk_size = std::numeric_limits<ChunkOffset>::max() - 1);
 
   // Returns the number of columns (cannot exceed ColumnID (uint16_t)).
   ColumnCount column_count() const;
@@ -72,7 +72,7 @@ class Table : private Noncopyable {
   std::vector<std::string> _column_types;
   std::vector<bool> _is_column_nullable;
 
-  ChunkOffset _chunk_size;
+  ChunkOffset _target_chunk_size;
   bool _last_chunk_modifiable;
   uint64_t _row_count_before_active_chunk;
 };
