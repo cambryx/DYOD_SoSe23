@@ -9,7 +9,7 @@
 namespace opossum {
 
 Table::Table(const ChunkOffset init_target_chunk_size)
-    : _target_chunk_size{init_target_chunk_size}, _last_chunk_modifiable{true}, _row_count_before_active_chunk{0} {
+    : _target_chunk_size{init_target_chunk_size}, _last_chunk_modifiable{true}, _row_count{0} {
   create_new_chunk();
 }
 
@@ -42,14 +42,11 @@ void Table::create_new_chunk() {
 
 void Table::append(const std::vector<AllTypeVariant>& values) {
   if (!_last_chunk_modifiable || _chunks.back()->size() == target_chunk_size()) {
-    if (_last_chunk_modifiable) {
-      _row_count_before_active_chunk += _chunks.back()->size();
-    } else {
-      _last_chunk_modifiable = true;
-    }
     create_new_chunk();
+    _last_chunk_modifiable = true;
   }
   _chunks.back()->append(values);
+  ++_row_count;
 }
 
 ColumnCount Table::column_count() const {
@@ -57,11 +54,7 @@ ColumnCount Table::column_count() const {
 }
 
 uint64_t Table::row_count() const {
-  auto row_count = _row_count_before_active_chunk;
-  if (_last_chunk_modifiable) {
-    row_count += _chunks.back()->size();
-  }
-  return row_count;
+  return _row_count;
 }
 
 ChunkID Table::chunk_count() const {
@@ -128,7 +121,6 @@ void Table::compress_chunk(const ChunkID chunk_id) {
   }
 
   _chunks.at(chunk_id) = compressed_chunk;
-  _row_count_before_active_chunk += chunk->size();
   _last_chunk_modifiable = false;
 }
 

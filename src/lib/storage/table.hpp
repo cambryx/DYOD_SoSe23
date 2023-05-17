@@ -74,7 +74,7 @@ class Table : private Noncopyable {
 
   ChunkOffset _target_chunk_size;
   bool _last_chunk_modifiable;
-  uint64_t _row_count_before_active_chunk;
+  uint64_t _row_count;
 };
 
 }  // namespace opossum
