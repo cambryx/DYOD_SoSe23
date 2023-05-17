@@ -119,7 +119,6 @@ TEST_F(StorageDictionarySegmentTest, Access) {
   EXPECT_EQ(dict_segment_int->get(0), uint8_t{25});
   EXPECT_EQ(dict_segment_str->get(0), std::string("Bill"));
 
-
   EXPECT_EQ(dict_segment_int->operator[](0), AllTypeVariant{25});
   EXPECT_EQ(dict_segment_int->operator[](1), AllTypeVariant{100});
 
@@ -127,6 +126,30 @@ TEST_F(StorageDictionarySegmentTest, Access) {
   EXPECT_EQ(value_segment_str->operator[](1), AllTypeVariant{"Steve"});
 
   EXPECT_TRUE(variant_is_null(dict_segment_str->operator[](2)));
+}
+
+TEST_F(StorageDictionarySegmentTest, MemoryEstimation) {
+  value_segment_big_int->append(1);
+  value_segment_big_int->append(2);
+  value_segment_big_int->append(3);
+  value_segment_big_int->append(1);
+  value_segment_big_int->append(2);
+  value_segment_big_int->append(3);
+
+  for (auto i = 0; i < 300; ++i) {
+    value_segment_int->append(i);
+  }
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_big_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+
+  // 6 bytes for the ValueIDs in the attribute vector (1 byte suffices for the 3 distinct values)
+  // 3 distinct values with 8 byte for the uint64_t
+  EXPECT_EQ(dict_segment_big_int->estimate_memory_usage(), 6 * 1 + 3 * 8);
+
+  // 300 * 2 bytes for ValueIDs (2 bytes are needed for 300 distinct values)
+  // 300 distinct values with 4 bytes for the uint32_t
+  EXPECT_EQ(dict_segment_int->estimate_memory_usage(), 300 * 2 + 300 * 4);
 }
 
 }  // namespace opossum
