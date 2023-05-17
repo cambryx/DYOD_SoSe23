@@ -1,7 +1,8 @@
-#include "table.hpp"
+#include <thread>
 
 #include "dictionary_segment.hpp"
 #include "resolve_type.hpp"
+#include "table.hpp"
 #include "utils/assert.hpp"
 #include "value_segment.hpp"
 
@@ -102,20 +103,28 @@ std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
 }
 
 void Table::compress_chunk(const ChunkID chunk_id) {
-  auto compressed_chunk = std::make_shared<Chunk>();
   const auto chunk = get_chunk(chunk_id);
   const auto column_count = chunk->column_count();
 
+  auto dictionary_segments = std::vector<std::shared_ptr<AbstractSegment>>(column_count);
+  auto thread_handles = std::vector<std::thread>();
+  thread_handles.reserve(column_count);
+
   for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
-    /*
-      ToDo: Multithreading
-    */
-    const auto segment = chunk->get_segment(column_id);
-    resolve_data_type(column_type(column_id), [&](auto type) {
-      using DataType = typename decltype(type)::type;
-      const auto dict_segment = std::make_shared<DictionarySegment<DataType>>(segment);
-      compressed_chunk->add_segment(std::move(dict_segment));
+    thread_handles.emplace_back([this, column_id, &chunk, &dictionary_segments]() {
+      const auto segment = chunk->get_segment(column_id);
+      resolve_data_type(column_type(column_id), [&](auto type) {
+        using DataType = typename decltype(type)::type;
+        dictionary_segments[column_id] = std::make_shared<DictionarySegment<DataType>>(segment);
+      });
     });
+  }
+
+  auto compressed_chunk = std::make_shared<Chunk>();
+  for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
+    thread_handles[column_id].join();
+    Assert(dictionary_segments[column_id], "Compression thread terminated without writing their dictionary segment.");
+    compressed_chunk->add_segment(dictionary_segments[column_id]);
   }
 
   _chunks.at(chunk_id) = compressed_chunk;
