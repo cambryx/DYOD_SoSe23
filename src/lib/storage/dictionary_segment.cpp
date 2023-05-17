@@ -42,8 +42,8 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
     }
   }
 
-  // Start at 1 if _is_nullable, because 0 is reserved for NULL
-  auto next_value_id = _is_nullable ? ValueID{1} : ValueID{0};
+  // Start after the id for the NULL value (1 or 0, depending on whether this segment is nullable).
+  auto next_value_id = null_value_offset();
   for (auto& [value, value_id] : value_to_id) {
     value_id = next_value_id++;
   }
@@ -58,7 +58,9 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
   }
 
   for (auto& [value, value_id] : value_to_id) {
-    // This offsets the value_id by one if _is_nullable is true, because value id 0 is reserved for NULL.
+    // Note: Here the null_value_offset is actually introduced: Although the first non-null element may have been
+    //       assigned id 1 (the first after null_value_id), it is still at index 0 in the dictionary vector. All later
+    //       accesses handle this by adding null_value_offset accordingly.
     _dictionary.emplace_back(std::move(value));
   }
   _attribute_vector = attribute_vector;
@@ -106,9 +108,14 @@ ValueID DictionarySegment<T>::null_value_id() const {
 }
 
 template <typename T>
+ValueID DictionarySegment<T>::null_value_offset() const {
+  return _is_nullable ? ValueID{1} : ValueID{0};
+}
+
+template <typename T>
 const T DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
   Assert(_is_nullable || value_id != null_value_id(), "Tried to get value for null_value_id.");
-  return dictionary().at(value_id - (_is_nullable ? 1 : 0));
+  return dictionary().at(value_id - null_value_offset());
 }
 
 template <typename T>
@@ -117,7 +124,7 @@ ValueID DictionarySegment<T>::lower_bound(const T value) const {
   if (lower == _dictionary.end()) {
     return INVALID_VALUE_ID;
   }
-  return static_cast<ValueID>(std::distance(_dictionary.begin(), lower) + (_is_nullable ? 1 : 0));
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), lower) + null_value_offset());
 }
 
 template <typename T>
@@ -139,7 +146,7 @@ ValueID DictionarySegment<T>::upper_bound(const T value) const {
   if (upper == _dictionary.end()) {
     return INVALID_VALUE_ID;
   }
-  return static_cast<ValueID>(std::distance(_dictionary.begin(), upper) + (_is_nullable ? 1 : 0));
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), upper) + null_value_offset());
 }
 
 template <typename T>
