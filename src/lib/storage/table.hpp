@@ -66,6 +66,9 @@ class Table : private Noncopyable {
   // Compresses a ValueColumn into a DictionaryColumn.
   void compress_chunk(const ChunkID chunk_id);
 
+ private:
+  std::shared_ptr<Chunk> last_chunk();
+
  protected:
   std::vector<std::shared_ptr<Chunk>> _chunks;
   std::vector<bool> _is_chunk_mutable;

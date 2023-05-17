@@ -1,3 +1,4 @@
+#include <atomic>
 #include <thread>
 
 #include "dictionary_segment.hpp"
@@ -29,22 +30,22 @@ static void add_value_segment(Chunk& chunk, const std::string& type, const bool 
 void Table::add_column(const std::string& name, const std::string& type, const bool nullable) {
   Assert(row_count() == 0, "Tried to create column on non-empty table.");
   add_column_definition(name, type, nullable);
-  add_value_segment(*_chunks.back(), type, nullable);
+  add_value_segment(*last_chunk(), type, nullable);
 }
 
 void Table::create_new_chunk() {
   _is_chunk_mutable.emplace_back(true);
   _chunks.emplace_back(std::make_shared<Chunk>());
   for (auto column_index = ColumnID{0}; column_index < column_count(); ++column_index) {
-    add_value_segment(*_chunks.back(), _column_types[column_index], _is_column_nullable[column_index]);
+    add_value_segment(*last_chunk(), _column_types[column_index], _is_column_nullable[column_index]);
   }
 }
 
 void Table::append(const std::vector<AllTypeVariant>& values) {
-  if (!_is_chunk_mutable.back() || _chunks.back()->size() == target_chunk_size()) {
+  if (!_is_chunk_mutable.back() || last_chunk()->size() == target_chunk_size()) {
     create_new_chunk();
   }
-  _chunks.back()->append(values);
+  last_chunk()->append(values);
   ++_row_count;
 }
 
@@ -87,11 +88,15 @@ bool Table::column_nullable(const ColumnID column_id) const {
 }
 
 std::shared_ptr<Chunk> Table::get_chunk(ChunkID chunk_id) {
-  return _chunks.at(chunk_id);
+  return std::atomic_load(&_chunks.at(chunk_id));
 }
 
 std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
-  return _chunks.at(chunk_id);
+  return std::atomic_load(&_chunks.at(chunk_id));
+}
+
+std::shared_ptr<Chunk> Table::last_chunk() {
+  return get_chunk(static_cast<ChunkID>(chunk_count() - 1));
 }
 
 void Table::compress_chunk(const ChunkID chunk_id) {
@@ -119,7 +124,7 @@ void Table::compress_chunk(const ChunkID chunk_id) {
     compressed_chunk->add_segment(dictionary_segments[column_id]);
   }
 
-  _chunks.at(chunk_id) = compressed_chunk;
+  std::atomic_store(&_chunks.at(chunk_id), compressed_chunk);
   _is_chunk_mutable.at(chunk_id) = false;
 }
 
