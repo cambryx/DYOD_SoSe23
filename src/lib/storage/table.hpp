@@ -68,12 +68,12 @@ class Table : private Noncopyable {
 
  protected:
   std::vector<std::shared_ptr<Chunk>> _chunks;
+  std::vector<bool> _is_chunk_mutable;
   std::vector<std::string> _column_names;
   std::vector<std::string> _column_types;
   std::vector<bool> _is_column_nullable;
 
   ChunkOffset _target_chunk_size;
-  bool _last_chunk_modifiable;
   uint64_t _row_count;
 };
 

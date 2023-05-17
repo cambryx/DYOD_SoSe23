@@ -8,8 +8,7 @@
 
 namespace opossum {
 
-Table::Table(const ChunkOffset init_target_chunk_size)
-    : _target_chunk_size{init_target_chunk_size}, _last_chunk_modifiable{true}, _row_count{0} {
+Table::Table(const ChunkOffset init_target_chunk_size) : _target_chunk_size{init_target_chunk_size}, _row_count{0} {
   create_new_chunk();
 }
 
@@ -34,6 +33,7 @@ void Table::add_column(const std::string& name, const std::string& type, const b
 }
 
 void Table::create_new_chunk() {
+  _is_chunk_mutable.emplace_back(true);
   _chunks.emplace_back(std::make_shared<Chunk>());
   for (auto column_index = ColumnID{0}; column_index < column_count(); ++column_index) {
     add_value_segment(*_chunks.back(), _column_types[column_index], _is_column_nullable[column_index]);
@@ -41,9 +41,8 @@ void Table::create_new_chunk() {
 }
 
 void Table::append(const std::vector<AllTypeVariant>& values) {
-  if (!_last_chunk_modifiable || _chunks.back()->size() == target_chunk_size()) {
+  if (!_is_chunk_mutable.back() || _chunks.back()->size() == target_chunk_size()) {
     create_new_chunk();
-    _last_chunk_modifiable = true;
   }
   _chunks.back()->append(values);
   ++_row_count;
@@ -121,7 +120,7 @@ void Table::compress_chunk(const ChunkID chunk_id) {
   }
 
   _chunks.at(chunk_id) = compressed_chunk;
-  _last_chunk_modifiable = false;
+  _is_chunk_mutable.at(chunk_id) = false;
 }
 
 }  // namespace opossum
