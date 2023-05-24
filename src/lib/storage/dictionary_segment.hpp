@@ -1,5 +1,6 @@
 #pragma once
 
+#include "abstract_attribute_vector.hpp"
 #include "abstract_segment.hpp"
 
 namespace opossum {
@@ -33,6 +34,9 @@ class DictionarySegment : public AbstractSegment {
   // Returns the ValueID used to represent a NULL value.
   ValueID null_value_id() const;
 
+  // The offset of a ValueID into the attribute vector. If _is_nullable is true, the offset is 1, otherwise, it is 0.
+  ValueID null_value_offset() const;
+
   // Returns the value represented by a given ValueID.
   const T value_of_value_id(const ValueID value_id) const;
 
@@ -62,6 +66,7 @@ class DictionarySegment : public AbstractSegment {
  protected:
   std::vector<T> _dictionary;
   std::shared_ptr<AbstractAttributeVector> _attribute_vector;
+  bool _is_nullable;
 };
 
 EXPLICITLY_DECLARE_DATA_TYPES(DictionarySegment);

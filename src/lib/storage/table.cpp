@@ -1,12 +1,15 @@
-#include "table.hpp"
+#include <atomic>
+#include <thread>
 
+#include "dictionary_segment.hpp"
 #include "resolve_type.hpp"
+#include "table.hpp"
 #include "utils/assert.hpp"
 #include "value_segment.hpp"
 
 namespace opossum {
 
-Table::Table(const ChunkOffset target_chunk_size) : _chunk_size{target_chunk_size} {
+Table::Table(const ChunkOffset init_target_chunk_size) : _target_chunk_size{init_target_chunk_size}, _row_count{0} {
   create_new_chunk();
 }
 
@@ -27,21 +30,23 @@ static void add_value_segment(Chunk& chunk, const std::string& type, const bool 
 void Table::add_column(const std::string& name, const std::string& type, const bool nullable) {
   Assert(row_count() == 0, "Tried to create column on non-empty table.");
   add_column_definition(name, type, nullable);
-  add_value_segment(*_chunks.back(), type, nullable);
+  add_value_segment(*last_chunk(), type, nullable);
 }
 
 void Table::create_new_chunk() {
+  _is_chunk_mutable.emplace_back(true);
   _chunks.emplace_back(std::make_shared<Chunk>());
   for (auto column_index = ColumnID{0}; column_index < column_count(); ++column_index) {
-    add_value_segment(*_chunks.back(), _column_types[column_index], _is_column_nullable[column_index]);
+    add_value_segment(*last_chunk(), _column_types[column_index], _is_column_nullable[column_index]);
   }
 }
 
 void Table::append(const std::vector<AllTypeVariant>& values) {
-  if (_chunks.back()->size() == target_chunk_size()) {
+  if (!_is_chunk_mutable.back() || last_chunk()->size() == target_chunk_size()) {
     create_new_chunk();
   }
-  _chunks.back()->append(values);
+  last_chunk()->append(values);
+  ++_row_count;
 }
 
 ColumnCount Table::column_count() const {
@@ -49,7 +54,7 @@ ColumnCount Table::column_count() const {
 }
 
 uint64_t Table::row_count() const {
-  return (chunk_count() - 1) * target_chunk_size() + _chunks.back()->size();
+  return _row_count;
 }
 
 ChunkID Table::chunk_count() const {
@@ -63,7 +68,7 @@ ColumnID Table::column_id_by_name(const std::string& column_name) const {
 }
 
 ChunkOffset Table::target_chunk_size() const {
-  return _chunk_size;
+  return _target_chunk_size;
 }
 
 const std::vector<std::string>& Table::column_names() const {
@@ -83,19 +88,44 @@ bool Table::column_nullable(const ColumnID column_id) const {
 }
 
 std::shared_ptr<Chunk> Table::get_chunk(ChunkID chunk_id) {
-  return _chunks.at(chunk_id);
+  return std::atomic_load(&_chunks.at(chunk_id));
 }
 
 std::shared_ptr<const Chunk> Table::get_chunk(ChunkID chunk_id) const {
-  return _chunks.at(chunk_id);
+  return std::atomic_load(&_chunks.at(chunk_id));
 }
 
-// GCOVR_EXCL_START
+std::shared_ptr<Chunk> Table::last_chunk() {
+  return get_chunk(static_cast<ChunkID>(chunk_count() - 1));
+}
+
 void Table::compress_chunk(const ChunkID chunk_id) {
-  // Implementation goes here
-  Fail("Implementation is missing.");
-}
+  const auto chunk = get_chunk(chunk_id);
+  const auto column_count = chunk->column_count();
 
-// GCOVR_EXCL_STOP
+  auto dictionary_segments = std::vector<std::shared_ptr<AbstractSegment>>(column_count);
+  auto thread_handles = std::vector<std::thread>();
+  thread_handles.reserve(column_count);
+
+  for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
+    thread_handles.emplace_back([this, column_id, &chunk, &dictionary_segments]() {
+      const auto segment = chunk->get_segment(column_id);
+      resolve_data_type(column_type(column_id), [&](auto type) {
+        using DataType = typename decltype(type)::type;
+        dictionary_segments[column_id] = std::make_shared<DictionarySegment<DataType>>(segment);
+      });
+    });
+  }
+
+  auto compressed_chunk = std::make_shared<Chunk>();
+  for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
+    thread_handles[column_id].join();
+    Assert(dictionary_segments[column_id], "Compression thread terminated without writing their dictionary segment.");
+    compressed_chunk->add_segment(dictionary_segments[column_id]);
+  }
+
+  std::atomic_store(&_chunks.at(chunk_id), compressed_chunk);
+  _is_chunk_mutable.at(chunk_id) = false;
+}
 
 }  // namespace opossum

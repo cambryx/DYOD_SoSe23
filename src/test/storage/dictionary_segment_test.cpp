@@ -10,6 +10,7 @@ namespace opossum {
 class StorageDictionarySegmentTest : public BaseTest {
  protected:
   std::shared_ptr<ValueSegment<int32_t>> value_segment_int{std::make_shared<ValueSegment<int32_t>>()};
+  std::shared_ptr<ValueSegment<int64_t>> value_segment_big_int{std::make_shared<ValueSegment<int64_t>>()};
   std::shared_ptr<ValueSegment<std::string>> value_segment_str{std::make_shared<ValueSegment<std::string>>(true)};
 };
 
@@ -53,21 +54,137 @@ TEST_F(StorageDictionarySegmentTest, LowerUpperBound) {
     using Type = typename decltype(type)::type;
     segment = std::make_shared<DictionarySegment<Type>>(value_segment_int);
   });
-  auto dict_segment = std::dynamic_pointer_cast<DictionarySegment<int32_t>>(segment);
 
-  EXPECT_EQ(dict_segment->lower_bound(4), ValueID{2});
-  EXPECT_EQ(dict_segment->upper_bound(4), ValueID{3});
+  auto dict_segment_int = std::dynamic_pointer_cast<DictionarySegment<int32_t>>(segment);
 
-  EXPECT_EQ(dict_segment->lower_bound(AllTypeVariant{4}), ValueID{2});
-  EXPECT_EQ(dict_segment->upper_bound(AllTypeVariant{4}), ValueID{3});
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
 
-  EXPECT_EQ(dict_segment->lower_bound(5), ValueID{3});
-  EXPECT_EQ(dict_segment->upper_bound(5), ValueID{3});
+  EXPECT_EQ(dict_segment_int->lower_bound(4), ValueID{2});
+  EXPECT_EQ(dict_segment_int->upper_bound(4), ValueID{3});
 
-  EXPECT_EQ(dict_segment->lower_bound(15), INVALID_VALUE_ID);
-  EXPECT_EQ(dict_segment->upper_bound(15), INVALID_VALUE_ID);
+  EXPECT_EQ(dict_segment_int->lower_bound(AllTypeVariant{4}), ValueID{2});
+  EXPECT_EQ(dict_segment_int->upper_bound(AllTypeVariant{4}), ValueID{3});
+
+  EXPECT_EQ(dict_segment_int->lower_bound(5), ValueID{3});
+  EXPECT_EQ(dict_segment_int->upper_bound(5), ValueID{3});
+
+  EXPECT_EQ(dict_segment_int->lower_bound(15), INVALID_VALUE_ID);
+  EXPECT_EQ(dict_segment_int->upper_bound(15), INVALID_VALUE_ID);
+
+  EXPECT_THROW(dict_segment_int->lower_bound(AllTypeVariant{"Hasso"}), std::logic_error);
+  EXPECT_THROW(dict_segment_int->upper_bound(AllTypeVariant{"Opossum"}), std::logic_error);
+
+  EXPECT_THROW(dict_segment_int->lower_bound(NULL_VALUE), std::logic_error);
+  EXPECT_THROW(dict_segment_int->upper_bound(NULL_VALUE), std::logic_error);
+
+  EXPECT_EQ(dict_segment_str->lower_bound(NULL_VALUE), dict_segment_str->null_value_id());
+  EXPECT_EQ(dict_segment_str->upper_bound(NULL_VALUE), dict_segment_str->null_value_id());
 }
 
-// TODO(student): You should add some more tests here (full coverage would be appreciated) and possibly in other files.
+TEST_F(StorageDictionarySegmentTest, ValueOfValueID) {
+  value_segment_int->append(25);
+  value_segment_int->append(100);
+
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{1}), std::string("Bill"));
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{2}), std::string("Steve"));
+
+  EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{0}), int32_t{25});
+  EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{1}), int32_t{100});
+
+  EXPECT_THROW(dict_segment_str->value_of_value_id(dict_segment_str->null_value_id()), std::logic_error);
+  EXPECT_NO_THROW(dict_segment_int->value_of_value_id(dict_segment_str->null_value_id()));
+}
+
+TEST_F(StorageDictionarySegmentTest, Access) {
+  value_segment_int->append(25);
+  value_segment_int->append(100);
+
+  value_segment_str->append("Bill");
+  value_segment_str->append("Steve");
+  value_segment_str->append(NULL_VALUE);
+
+  EXPECT_THROW(value_segment_int->append(NULL_VALUE), std::logic_error);
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+
+  EXPECT_EQ(dict_segment_int->get(0), uint8_t{25});
+  EXPECT_EQ(dict_segment_str->get(0), std::string("Bill"));
+
+  EXPECT_EQ(dict_segment_int->operator[](0), AllTypeVariant{25});
+  EXPECT_EQ(dict_segment_int->operator[](1), AllTypeVariant{100});
+
+  EXPECT_EQ(value_segment_str->operator[](0), AllTypeVariant{"Bill"});
+  EXPECT_EQ(value_segment_str->operator[](1), AllTypeVariant{"Steve"});
+
+  EXPECT_TRUE(variant_is_null(dict_segment_str->operator[](2)));
+}
+
+TEST_F(StorageDictionarySegmentTest, MemoryEstimation) {
+  value_segment_big_int->append(1);
+  value_segment_big_int->append(2);
+  value_segment_big_int->append(3);
+  value_segment_big_int->append(1);
+  value_segment_big_int->append(2);
+  value_segment_big_int->append(3);
+
+  for (auto i = 0; i < 300; ++i) {
+    value_segment_int->append(i);
+  }
+
+  const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
+  const auto dict_segment_big_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+
+  // 6 bytes for the ValueIDs in the attribute vector (1 byte suffices for the 3 distinct values)
+  // 3 distinct values with 8 byte for the uint64_t
+  EXPECT_EQ(dict_segment_big_int->estimate_memory_usage(), 6 * 1 + 3 * 8);
+
+  // 300 * 2 bytes for ValueIDs (2 bytes are needed for 300 distinct values)
+  // 300 distinct values with 4 bytes for the uint32_t
+  EXPECT_EQ(dict_segment_int->estimate_memory_usage(), 300 * 2 + 300 * 4);
+}
+
+TEST_F(StorageDictionarySegmentTest, AttributeVectorWidth) {
+  for (auto i = 0; i < 256; ++i) {
+    value_segment_big_int->append(i);
+  }
+  auto dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 1);
+
+  value_segment_big_int->append(256);
+
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 2);
+
+  for (auto i = 257; i < 65536; ++i) {
+    value_segment_big_int->append(i);
+  }
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 2);
+
+  value_segment_big_int->append(65536);
+  dict_segment_int = std::make_shared<DictionarySegment<int64_t>>(value_segment_big_int);
+  EXPECT_EQ(dict_segment_int->attribute_vector()->width(), 4);
+
+  // For nullable ValueSegments the border between different types is offset by 1 because of null_value_id
+  for (auto i = 0; i < 255; ++i) {
+    value_segment_str->append(i);
+  }
+
+  auto dict_segment_string = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+  EXPECT_EQ(dict_segment_string->attribute_vector()->width(), 1);
+
+  value_segment_str->append("255");
+  dict_segment_string = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
+  EXPECT_EQ(dict_segment_string->attribute_vector()->width(), 2);
+}
 
 }  // namespace opossum

@@ -110,6 +110,18 @@ TEST_F(StorageTableTest, AppendWithEncodedSegments) {
 
   EXPECT_EQ(table.row_count(), 2);
   EXPECT_EQ(table.chunk_count(), 2);
+
+  table.append({3, "x"});
+  table.append({4, "y"});
+
+  EXPECT_EQ(table.row_count(), 4);
+  EXPECT_EQ(table.chunk_count(), 3);
+
+  table.compress_chunk(ChunkID{1});
+  table.append({5, "z"});
+
+  EXPECT_EQ(table.row_count(), 5);
+  EXPECT_EQ(table.chunk_count(), 3);
 }
 
 }  // namespace opossum
