@@ -1,8 +1,8 @@
 #include "reference_segment.hpp"
 
 #include "storage/table.hpp"
-#include "utils/assert.hpp"
 #include "types.hpp"
+#include "utils/assert.hpp"
 
 namespace opossum {
 
