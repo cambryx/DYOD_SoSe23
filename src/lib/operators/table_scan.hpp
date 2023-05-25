@@ -2,6 +2,8 @@
 
 #include "abstract_operator.hpp"
 #include "all_type_variant.hpp"
+#include "storage/dictionary_segment.hpp"
+#include "storage/reference_segment.hpp"
 #include "storage/value_segment.hpp"
 
 namespace opossum {
@@ -21,7 +23,10 @@ class TableScan : public AbstractOperator {
   template <typename T>
   bool check_scan_condition(T value);
   template <typename T>
-  void scan_value_segment(const ChunkID chunk_id, const std::shared_ptr<ValueSegment<T>> segment, const std::shared_ptr<PosList> pos_list);
+  void scan_value_segment(ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list);
+  template <typename T>
+  void scan_dictionary_segment(ChunkID chunk_id, const DictionarySegment<T>& segment, PosList& pos_list);
+  void scan_reference_segment(ChunkID chunk_id, const ReferenceSegment& segment, PosList& pos_list);
 
   std::shared_ptr<const Table> _on_execute() override;
   ColumnID _column_id;

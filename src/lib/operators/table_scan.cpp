@@ -36,16 +36,21 @@ bool TableScan::check_scan_condition(T value) {
 }
 
 template <typename T>
-void TableScan::scan_value_segment(const ChunkID chunk_id, const std::shared_ptr<ValueSegment<T>> segment,
-                                   const std::shared_ptr<PosList> pos_list) {
-  const auto values = segment->values();
-  const auto segment_size = segment->size();
+void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list) {
+  const auto& values = segment.values();
+  const auto segment_size = segment.size();
   for (auto chunk_offset = ChunkOffset{0}; chunk_offset < segment_size; ++chunk_offset) {
     if (check_scan_condition(values[chunk_offset])) {
-      pos_list->emplace_back(chunk_id, chunk_offset);
+      pos_list.emplace_back(chunk_id, chunk_offset);
     }
   }
 }
+
+template <typename T>
+void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
+                                        PosList& pos_list) {}
+
+void TableScan::scan_reference_segment(const ChunkID chunk_id, const ReferenceSegment& segment, PosList& pos_list) {}
 
 ColumnID TableScan::column_id() const {
   return _column_id;
@@ -71,13 +76,15 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
     resolve_data_type(table->column_type(_column_id), [&](auto type) {
       using Type = typename decltype(type)::type;
       const auto value_segment = std::dynamic_pointer_cast<ValueSegment<Type>>(segment);
-      const auto dictionary_segment = std::dynamic_pointer_cast<ValueSegment<Type>>(segment);
+      const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<Type>>(segment);
       const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
 
       if (value_segment) {
-        scan_value_segment(chunk_id, value_segment, pos_list);
+        scan_value_segment(chunk_id, *value_segment, *pos_list);
       } else if (dictionary_segment) {
+        scan_dictionary_segment(chunk_id, *dictionary_segment, *pos_list);
       } else if (reference_segment) {
+        scan_reference_segment(chunk_id, *reference_segment, *pos_list);
       } else {
         Fail("Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
       }
