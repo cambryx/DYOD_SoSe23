@@ -91,6 +91,13 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
     });
   }
 
-  return nullptr;
+  auto output_chunk = std::make_shared<Chunk>();
+
+  const auto column_count = table->column_count();
+  for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
+    output_chunk->add_segment(std::make_shared<ReferenceSegment>(table, column_id, pos_list));
+  }
+
+  return std::make_shared<Table>(*table, std::move(output_chunk));
 }
 }  // namespace opossum
