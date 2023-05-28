@@ -16,23 +16,22 @@ template <typename T>
 auto predicate_for_scantype(ScanType scan_type) {
   switch (scan_type) {
     case ScanType::OpEquals:
-      return +[](const T& a, const T& b) {return a == b;};
+      return +[](const T& a, const T& b) { return a == b; };
     case ScanType::OpNotEquals:
-      return +[](const T& a, const T& b) {return a != b;};
+      return +[](const T& a, const T& b) { return a != b; };
     case ScanType::OpLessThan:
-      return +[](const T& a, const T& b) {return a < b;};
+      return +[](const T& a, const T& b) { return a < b; };
     case ScanType::OpLessThanEquals:
-      return +[](const T& a, const T& b) {return a <= b;};
+      return +[](const T& a, const T& b) { return a <= b; };
     case ScanType::OpGreaterThan:
-      return +[](const T& a, const T& b) {return a > b;};
+      return +[](const T& a, const T& b) { return a > b; };
     case ScanType::OpGreaterThanEquals:
-      return +[](const T& a, const T& b) {return a >= b;};
+      return +[](const T& a, const T& b) { return a >= b; };
     default:
       Fail("Invalid Scan type.");
   }
 }
-}
-
+}  // namespace
 
 template <typename T>
 void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list) {
@@ -49,9 +48,7 @@ void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>
 
 template <typename T>
 void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
-                                        PosList& pos_list) {
-  
-}
+                                        PosList& pos_list) {}
 
 void TableScan::scan_reference_segment(const ChunkID chunk_id, const ReferenceSegment& segment, PosList& pos_list) {}
 
