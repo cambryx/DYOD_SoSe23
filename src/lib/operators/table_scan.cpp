@@ -5,6 +5,7 @@
 #include "storage/dictionary_segment.hpp"
 #include "storage/reference_segment.hpp"
 #include "storage/table.hpp"
+#include "types.hpp"
 #include "utils/assert.hpp"
 
 namespace opossum {
@@ -13,21 +14,21 @@ TableScan::TableScan(const std::shared_ptr<const AbstractOperator>& in, const Co
     : AbstractOperator(in), _column_id{column_id}, _scan_type{scan_type}, _search_value(search_value) {}
 
 namespace {
-template <typename T>
+template <typename T, typename U = T>
 auto predicate_for_scantype(ScanType scan_type) {
   switch (scan_type) {
     case ScanType::OpEquals:
-      return +[](const T& a, const T& b) { return a == b; };
+      return +[](const T& a, const U& b) { return a == b; };
     case ScanType::OpNotEquals:
-      return +[](const T& a, const T& b) { return a != b; };
+      return +[](const T& a, const U& b) { return a != b; };
     case ScanType::OpLessThan:
-      return +[](const T& a, const T& b) { return a < b; };
+      return +[](const T& a, const U& b) { return a < b; };
     case ScanType::OpLessThanEquals:
-      return +[](const T& a, const T& b) { return a <= b; };
+      return +[](const T& a, const U& b) { return a <= b; };
     case ScanType::OpGreaterThan:
-      return +[](const T& a, const T& b) { return a > b; };
+      return +[](const T& a, const U& b) { return a > b; };
     case ScanType::OpGreaterThanEquals:
-      return +[](const T& a, const T& b) { return a >= b; };
+      return +[](const T& a, const U& b) { return a >= b; };
     default:
       Fail("Invalid Scan type.");
   }
@@ -39,23 +40,58 @@ void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>
   const auto& values = segment.values();
   const auto segment_size = segment.size();
   const auto predicate = predicate_for_scantype<T>(_scan_type);
-  const auto& search_value_casted = get<T>(_search_value);
   for (auto chunk_offset = ChunkOffset{0}; chunk_offset < segment_size; ++chunk_offset) {
-    if (predicate(values[chunk_offset], search_value_casted)) {
+    if (!segment.is_null(chunk_offset) && !variant_is_null(_search_value) &&
+        predicate(values[chunk_offset], get<T>(_search_value))) {
       pos_list.emplace_back(chunk_id, chunk_offset);
     }
   }
 }
 
+struct InBetweenValueID {
+  // clang-format off
+
+  friend bool operator==(const ValueID& other, const InBetweenValueID& self) { return other == self.lower && self.is_contained(); }
+  friend bool operator!=(const ValueID& other, const InBetweenValueID& self) { return !(other == self); }
+  friend bool operator<(const ValueID& other, const InBetweenValueID& self) { return other < self.lower; }
+  friend bool operator<=(const ValueID& other, const InBetweenValueID& self) { return other < self.upper; }
+  friend bool operator>(const ValueID& other, const InBetweenValueID& self) { return other >= self.upper; }
+  friend bool operator>=(const ValueID& other, const InBetweenValueID& self) { return other >= self.lower; }
+
+  // clang-format on
+
+  // Whether the lower and upper bounds imply that the search value is contained in the segment.
+  bool is_contained() const {
+    return lower != upper;
+  }
+
+  ValueID lower, upper;
+};
+
 template <typename T>
 void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
-                                        PosList& pos_list) {}
+                                        PosList& pos_list) {
+  const auto attribute_vector = segment.attribute_vector();
+  const auto predicate = predicate_for_scantype<ValueID, InBetweenValueID>(_scan_type);
+  const auto segment_size = segment.size();
+
+  // Note: If _seach_value is larger than all values in the dictionary segment, then the ids returned are
+  //       INVALID_VALUE_ID - the biggest possible value of any ValueID, so the math checks out.
+  const auto comparison_value =
+      InBetweenValueID{segment.lower_bound(_search_value), segment.upper_bound(_search_value)};
+
+  for (auto chunk_offset = ChunkOffset{0}; chunk_offset < segment_size; ++chunk_offset) {
+    if (predicate(attribute_vector->get(chunk_offset), comparison_value)) {
+      pos_list.emplace_back(chunk_id, chunk_offset);
+    }
+  }
+}
 
 void TableScan::scan_reference_segment(const ReferenceSegment& segment, PosList& pos_list) {
   const auto predicate = predicate_for_scantype<AllTypeVariant>(_scan_type);
   for (const auto row_id : *segment.pos_list()) {
     const auto value = segment.get_by_row_id(row_id);
-    if (predicate(value, _search_value)) {
+    if (!variant_is_null(value) && predicate(value, _search_value)) {
       pos_list.emplace_back(row_id);
     }
   }
