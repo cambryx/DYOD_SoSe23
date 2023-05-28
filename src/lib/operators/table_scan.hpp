@@ -26,7 +26,7 @@ class TableScan : public AbstractOperator {
   void scan_value_segment(ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list);
   template <typename T>
   void scan_dictionary_segment(ChunkID chunk_id, const DictionarySegment<T>& segment, PosList& pos_list);
-  void scan_reference_segment(ChunkID chunk_id, const ReferenceSegment& segment, PosList& pos_list);
+  void scan_reference_segment(const ReferenceSegment& segment, PosList& pos_list);
 
   std::shared_ptr<const Table> _on_execute() override;
   ColumnID _column_id;

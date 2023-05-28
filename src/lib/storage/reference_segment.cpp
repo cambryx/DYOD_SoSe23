@@ -11,7 +11,10 @@ ReferenceSegment::ReferenceSegment(const std::shared_ptr<const Table>& reference
     : _referenced_table{referenced_table}, _referenced_column_id{referenced_column_id}, _pos_list{pos} {}
 
 AllTypeVariant ReferenceSegment::operator[](const ChunkOffset chunk_offset) const {
-  const auto& row_id = _pos_list->at(chunk_offset);
+  return get_by_row_id(_pos_list->at(chunk_offset));
+}
+
+AllTypeVariant ReferenceSegment::get_by_row_id(RowID row_id) const {
   if (row_id.is_null()) {
     return NULL_VALUE;
   }

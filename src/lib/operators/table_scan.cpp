@@ -1,5 +1,6 @@
 #include "table_scan.hpp"
 
+#include "all_type_variant.hpp"
 #include "resolve_type.hpp"
 #include "storage/dictionary_segment.hpp"
 #include "storage/reference_segment.hpp"
@@ -50,7 +51,15 @@ template <typename T>
 void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
                                         PosList& pos_list) {}
 
-void TableScan::scan_reference_segment(const ChunkID chunk_id, const ReferenceSegment& segment, PosList& pos_list) {}
+void TableScan::scan_reference_segment(const ReferenceSegment& segment, PosList& pos_list) {
+  const auto predicate = predicate_for_scantype<AllTypeVariant>(_scan_type);
+  for (const auto row_id : *segment.pos_list()) {
+    const auto value = segment.get_by_row_id(row_id);
+    if (predicate(value, _search_value)) {
+      pos_list.emplace_back(row_id);
+    }
+  }
+}
 
 ColumnID TableScan::column_id() const {
   return _column_id;
@@ -65,15 +74,18 @@ const AllTypeVariant& TableScan::search_value() const {
 }
 
 std::shared_ptr<const Table> TableScan::_on_execute() {
-  const auto table = _left_input_table();
-  const auto chunk_count = table->chunk_count();
+  auto reference_segment_count = 0;
+
+  const auto input_table = _left_input_table();
+  auto referenced_table = input_table;
+  const auto chunk_count = input_table->chunk_count();
 
   auto pos_list = std::make_shared<PosList>();
   for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
-    const auto chunk = table->get_chunk(chunk_id);
+    const auto chunk = input_table->get_chunk(chunk_id);
     const auto segment = chunk->get_segment(_column_id);
 
-    resolve_data_type(table->column_type(_column_id), [&](auto type) {
+    resolve_data_type(input_table->column_type(_column_id), [&](auto type) {
       using Type = typename decltype(type)::type;
       const auto value_segment = std::dynamic_pointer_cast<ValueSegment<Type>>(segment);
       const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<Type>>(segment);
@@ -84,20 +96,25 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
       } else if (dictionary_segment) {
         scan_dictionary_segment(chunk_id, *dictionary_segment, *pos_list);
       } else if (reference_segment) {
-        scan_reference_segment(chunk_id, *reference_segment, *pos_list);
+        scan_reference_segment(*reference_segment, *pos_list);
+        referenced_table = reference_segment->referenced_table();
+        ++reference_segment_count;
       } else {
         Fail("Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
       }
     });
   }
 
+  Assert(reference_segment_count == 0 || (chunk_count == 1 && reference_segment_count == 1),
+         "Input table for TableScan did not follow expectations about reference segment placement in chunks.");
+
   auto output_chunk = std::make_shared<Chunk>();
 
-  const auto column_count = table->column_count();
+  const auto column_count = input_table->column_count();
   for (auto column_id = ColumnID{0}; column_id < column_count; ++column_id) {
-    output_chunk->add_segment(std::make_shared<ReferenceSegment>(table, column_id, pos_list));
+    output_chunk->add_segment(std::make_shared<ReferenceSegment>(referenced_table, column_id, pos_list));
   }
 
-  return std::make_shared<Table>(*table, std::move(output_chunk));
+  return std::make_shared<Table>(*input_table, std::move(output_chunk));
 }
 }  // namespace opossum
