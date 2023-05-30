@@ -51,7 +51,7 @@ void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>
 struct InBetweenValueID {
   // clang-format off
 
-  friend bool operator==(const ValueID& other, const InBetweenValueID& self) { return other == self.lower && self.is_contained(); }
+  friend bool operator==(const ValueID& other, const InBetweenValueID& self) { return other == self.lower && self.is_contained(); } // NOLINT
   friend bool operator!=(const ValueID& other, const InBetweenValueID& self) { return !(other == self); }
   friend bool operator<(const ValueID& other, const InBetweenValueID& self) { return other < self.lower; }
   friend bool operator<=(const ValueID& other, const InBetweenValueID& self) { return other < self.upper; }
