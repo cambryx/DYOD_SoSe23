@@ -103,6 +103,29 @@ TEST_F(OperatorsTableScanTest, DoubleScan) {
   EXPECT_TABLE_EQ(scan_2->get_output(), expected_result);
 }
 
+TEST_F(OperatorsTableScanTest, SearchValue) {
+  const auto search_value = AllTypeVariant{457.9f};
+  auto scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{1}, ScanType::OpLessThan, search_value);
+  EXPECT_EQ(scan->search_value(), search_value);
+}
+
+TEST_F(OperatorsTableScanTest, ColumnID) {
+  const auto column_id = ColumnID{1};
+  auto scan = std::make_shared<TableScan>(_table_wrapper, column_id, ScanType::OpLessThan, 450);
+  EXPECT_EQ(scan->column_id(), column_id);
+}
+
+TEST_F(OperatorsTableScanTest, ScanType) {
+  auto scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType{-1}, 90000);
+  EXPECT_THROW(scan->execute(), std::logic_error);
+
+  scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpLessThan, 90000);
+  EXPECT_EQ(scan->scan_type(), ScanType::OpLessThan);
+
+  scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThan, 90000);
+  EXPECT_EQ(scan->scan_type(), ScanType::OpGreaterThan);
+}
+
 TEST_F(OperatorsTableScanTest, EmptyResultScan) {
   auto scan_1 = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThan, 90000);
   scan_1->execute();
@@ -266,7 +289,10 @@ TEST_F(OperatorsTableScanTest, ScanOnWideDictionarySegment) {
 TEST_F(OperatorsTableScanTest, ScanOnReferenceSegmentWithNullValue) {
   auto tests = std::map<ScanType, std::vector<AllTypeVariant>>{};
   tests[ScanType::OpEquals] = {104};
-  tests[ScanType::OpNotEquals] = {100, 102, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
+  tests[ScanType::OpNotEquals] = {/* Without more context, it is unclear what the `100` is referring
+  to. It appears in several places in the code, such as in the test
+  cases for scanning a dictionary-encoded column. */
+                                  100, 102, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
   tests[ScanType::OpLessThan] = {100, 102};
   tests[ScanType::OpLessThanEquals] = {100, 102, 104};
   tests[ScanType::OpGreaterThan] = {106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
@@ -283,5 +309,4 @@ TEST_F(OperatorsTableScanTest, ScanOnReferenceSegmentWithNullValue) {
     ASSERT_COLUMN_EQ(scan_2->get_output(), ColumnID{1}, test.second);
   }
 }
-
 }  // namespace opossum
