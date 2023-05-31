@@ -89,7 +89,7 @@ void TableScan::_scan_dictionary_segment(const ChunkID chunk_id, const Dictionar
 
   for (auto chunk_offset = ChunkOffset{0}; chunk_offset < segment_size; ++chunk_offset) {
     if (predicate(attribute_vector->get(chunk_offset), comparison_value)) {
-      pos_list.emplace_back(chunk_id, chunk_offset);
+      pos_list.push_back({chunk_id, chunk_offset});
     }
   }
 }
