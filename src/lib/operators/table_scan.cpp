@@ -127,6 +127,9 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
       const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<Type>>(segment);
       const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
 
+      Assert(value_segment || dictionary_segment || reference_segment,
+             "Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
+
       if (value_segment) {
         scan_value_segment(chunk_id, *value_segment, *pos_list);
       } else if (dictionary_segment) {
@@ -135,8 +138,6 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
         scan_reference_segment(*reference_segment, *pos_list);
         referenced_table = reference_segment->referenced_table();
         ++reference_segment_count;
-      } else {
-        Fail("Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
       }
     });
   }
