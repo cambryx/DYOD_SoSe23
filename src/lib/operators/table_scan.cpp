@@ -18,17 +18,19 @@ template <typename T, typename U = T>
 auto predicate_for_scantype(ScanType scan_type) {
   switch (scan_type) {
     case ScanType::OpEquals:
-      return +[](const T& a, const U& b) { return a == b; };
+      // Note: The unary "+" forces conversion to a function pointer - without it, the return type would be deduced to
+      //       be the type of the first lambda.
+      return +[](const T& lhs, const U& rhs) { return lhs == rhs; };
     case ScanType::OpNotEquals:
-      return +[](const T& a, const U& b) { return a != b; };
+      return +[](const T& lhs, const U& rhs) { return lhs != rhs; };
     case ScanType::OpLessThan:
-      return +[](const T& a, const U& b) { return a < b; };
+      return +[](const T& lhs, const U& rhs) { return lhs < rhs; };
     case ScanType::OpLessThanEquals:
-      return +[](const T& a, const U& b) { return a <= b; };
+      return +[](const T& lhs, const U& rhs) { return lhs <= rhs; };
     case ScanType::OpGreaterThan:
-      return +[](const T& a, const U& b) { return a > b; };
+      return +[](const T& lhs, const U& rhs) { return lhs > rhs; };
     case ScanType::OpGreaterThanEquals:
-      return +[](const T& a, const U& b) { return a >= b; };
+      return +[](const T& lhs, const U& rhs) { return lhs >= rhs; };
     default:
       Fail("Invalid Scan type.");
   }
@@ -36,7 +38,7 @@ auto predicate_for_scantype(ScanType scan_type) {
 }  // namespace
 
 template <typename T>
-void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list) {
+void TableScan::_scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>& segment, PosList& pos_list) {
   const auto& values = segment.values();
   const auto segment_size = segment.size();
   const auto predicate = predicate_for_scantype<T>(_scan_type);
@@ -48,10 +50,15 @@ void TableScan::scan_value_segment(const ChunkID chunk_id, const ValueSegment<T>
   }
 }
 
+// Represents a ValueID that can be just between two integer numbers. This is used for comparing range scans of
+// ValueIDs in DictionarySegments where the cutoff for the scan does not have a ValueID assigned as it is not contained
+// in the dictionary.
 struct InBetweenValueID {
   // clang-format off
 
-  friend bool operator==(const ValueID& other, const InBetweenValueID& self) { return other == self.lower && self.is_contained(); } // NOLINT
+  friend bool operator==(const ValueID& other, const InBetweenValueID& self) {
+      return other == self.lower && self.is_contained();
+  }
   friend bool operator!=(const ValueID& other, const InBetweenValueID& self) { return !(other == self); }
   friend bool operator<(const ValueID& other, const InBetweenValueID& self) { return other < self.lower; }
   friend bool operator<=(const ValueID& other, const InBetweenValueID& self) { return other < self.upper; }
@@ -69,8 +76,8 @@ struct InBetweenValueID {
 };
 
 template <typename T>
-void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
-                                        PosList& pos_list) {
+void TableScan::_scan_dictionary_segment(const ChunkID chunk_id, const DictionarySegment<T>& segment,
+                                         PosList& pos_list) {
   const auto attribute_vector = segment.attribute_vector();
   const auto predicate = predicate_for_scantype<ValueID, InBetweenValueID>(_scan_type);
   const auto segment_size = segment.size();
@@ -87,7 +94,7 @@ void TableScan::scan_dictionary_segment(const ChunkID chunk_id, const Dictionary
   }
 }
 
-void TableScan::scan_reference_segment(const ReferenceSegment& segment, PosList& pos_list) {
+void TableScan::_scan_reference_segment(const ReferenceSegment& segment, PosList& pos_list) {
   const auto predicate = predicate_for_scantype<AllTypeVariant>(_scan_type);
   for (const auto row_id : *segment.pos_list()) {
     const auto value = segment.get_by_row_id(row_id);
@@ -110,13 +117,15 @@ const AllTypeVariant& TableScan::search_value() const {
 }
 
 std::shared_ptr<const Table> TableScan::_on_execute() {
-  auto reference_segment_count = 0;
-
   const auto input_table = _left_input_table();
-  auto referenced_table = input_table;
   const auto chunk_count = input_table->chunk_count();
 
+  // When scanning a ReferenceSegment, the newly created ReferenceSegment should not point into the former, but instead
+  // refer to the underlying Table directly.
+  auto referenced_table = input_table;
   auto pos_list = std::make_shared<PosList>();
+  auto reference_segment_count = 0;
+
   for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
     const auto chunk = input_table->get_chunk(chunk_id);
     const auto segment = chunk->get_segment(_column_id);
@@ -128,14 +137,14 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
       const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
 
       DebugAssert(value_segment || dictionary_segment || reference_segment,
-             "Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
+                  "Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
 
       if (value_segment) {
-        scan_value_segment(chunk_id, *value_segment, *pos_list);
+        _scan_value_segment(chunk_id, *value_segment, *pos_list);
       } else if (dictionary_segment) {
-        scan_dictionary_segment(chunk_id, *dictionary_segment, *pos_list);
+        _scan_dictionary_segment(chunk_id, *dictionary_segment, *pos_list);
       } else if (reference_segment) {
-        scan_reference_segment(*reference_segment, *pos_list);
+        _scan_reference_segment(*reference_segment, *pos_list);
         referenced_table = reference_segment->referenced_table();
         ++reference_segment_count;
       }

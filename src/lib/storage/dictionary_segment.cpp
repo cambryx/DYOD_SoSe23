@@ -105,6 +105,7 @@ ValueID DictionarySegment<T>::null_value_id() const {
     return INVALID_VALUE_ID;
   }
 
+  // The maximum value representable within the attribute vector's width.
   return ValueID{(1u << attribute_vector()->width() * 8) - 1};
 }
 
