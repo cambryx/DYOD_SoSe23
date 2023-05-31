@@ -45,7 +45,7 @@ void TableScan::_scan_value_segment(const ChunkID chunk_id, const ValueSegment<T
   for (auto chunk_offset = ChunkOffset{0}; chunk_offset < segment_size; ++chunk_offset) {
     if (!segment.is_null(chunk_offset) && !variant_is_null(_search_value) &&
         predicate(values[chunk_offset], get<T>(_search_value))) {
-      pos_list.emplace_back(chunk_id, chunk_offset);
+      pos_list.push_back({chunk_id, chunk_offset});
     }
   }
 }
