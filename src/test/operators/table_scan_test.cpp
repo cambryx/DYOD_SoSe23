@@ -289,10 +289,7 @@ TEST_F(OperatorsTableScanTest, ScanOnWideDictionarySegment) {
 TEST_F(OperatorsTableScanTest, ScanOnReferenceSegmentWithNullValue) {
   auto tests = std::map<ScanType, std::vector<AllTypeVariant>>{};
   tests[ScanType::OpEquals] = {104};
-  tests[ScanType::OpNotEquals] = {/* Without more context, it is unclear what the `100` is referring
-  to. It appears in several places in the code, such as in the test
-  cases for scanning a dictionary-encoded column. */
-                                  100, 102, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
+  tests[ScanType::OpNotEquals] = {100, 102, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
   tests[ScanType::OpLessThan] = {100, 102};
   tests[ScanType::OpLessThanEquals] = {100, 102, 104};
   tests[ScanType::OpGreaterThan] = {106, 108, 110, 112, 114, 116, 118, 120, 122, 124};
