@@ -127,7 +127,7 @@ std::shared_ptr<const Table> TableScan::_on_execute() {
       const auto dictionary_segment = std::dynamic_pointer_cast<DictionarySegment<Type>>(segment);
       const auto reference_segment = std::dynamic_pointer_cast<ReferenceSegment>(segment);
 
-      Assert(value_segment || dictionary_segment || reference_segment,
+      DebugAssert(value_segment || dictionary_segment || reference_segment,
              "Segment has to be ValueSegment, DictionarySegment or ReferenceSegment.");
 
       if (value_segment) {
