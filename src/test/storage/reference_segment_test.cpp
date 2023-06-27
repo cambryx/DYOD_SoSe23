@@ -50,6 +50,15 @@ TEST_F(ReferenceSegmentTest, RetrievesValues) {
   EXPECT_EQ(reference_segment[2], segment[2]);
 }
 
+TEST_F(ReferenceSegmentTest, ReferencedColumnID) {
+  // PosList with (0, 1), (0, 2), (0, 0)
+  const auto pos_list = std::make_shared<PosList>(
+      std::initializer_list<RowID>({RowID{ChunkID{0}, 1}, RowID{ChunkID{0}, 2}, RowID{ChunkID{0}, 0}}));
+  const auto reference_segment = ReferenceSegment(_test_table, ColumnID{0}, pos_list);
+
+  EXPECT_EQ(reference_segment.referenced_column_id(), ColumnID{0});
+}
+
 TEST_F(ReferenceSegmentTest, RetrievesValuesOutOfOrder) {
   // PosList with (0, 1), (0, 2), (0, 0)
   auto pos_list = std::make_shared<PosList>(
@@ -90,6 +99,29 @@ TEST_F(ReferenceSegmentTest, RetrieveNullValueFromNullRowID) {
   EXPECT_EQ(ref_segment[ChunkOffset{1}], segment[ChunkOffset{1}]);
   EXPECT_TRUE(variant_is_null(ref_segment[ChunkOffset{2}]));
   EXPECT_EQ(ref_segment[ChunkOffset{3}], segment[ChunkOffset{2}]);
+}
+
+TEST_F(ReferenceSegmentTest, EstimateMemoryUsage) {
+  // PosList with (0, 0), (0, 1), (0, 2)
+  auto pos_list = std::make_shared<PosList>(
+      std::initializer_list<RowID>({RowID{ChunkID{0}, 0}, RowID{ChunkID{0}, 1}, RowID{ChunkID{0}, 2}}));
+  auto reference_segment = ReferenceSegment(_test_table, ColumnID{0}, pos_list);
+
+  EXPECT_EQ(reference_segment.estimate_memory_usage(),
+            3 * sizeof(RowID));  // should be 3 * 8 byte (because both chunk_id and chunk_offset in RowID have 4 byte)
+
+  // empty PosList
+  pos_list = std::make_shared<PosList>();
+  reference_segment = ReferenceSegment(_test_table, ColumnID{0}, pos_list);
+
+  EXPECT_EQ(reference_segment.estimate_memory_usage(), 0);
+
+  // PosList with (0, 0), (0, 1), (0, 2), (1, 1)
+  pos_list = std::make_shared<PosList>(std::initializer_list<RowID>(
+      {RowID{ChunkID{0}, 0}, RowID{ChunkID{0}, 1}, RowID{ChunkID{0}, 2}, RowID{ChunkID{1}, 1}}));
+  reference_segment = ReferenceSegment(_test_table_dict, ColumnID{0}, pos_list);
+
+  EXPECT_EQ(reference_segment.estimate_memory_usage(), 4 * sizeof(RowID));
 }
 
 }  // namespace opossum

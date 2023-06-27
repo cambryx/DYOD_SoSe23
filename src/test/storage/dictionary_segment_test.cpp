@@ -93,14 +93,14 @@ TEST_F(StorageDictionarySegmentTest, ValueOfValueID) {
   const auto dict_segment_int = std::make_shared<DictionarySegment<int32_t>>(value_segment_int);
   const auto dict_segment_str = std::make_shared<DictionarySegment<std::string>>(value_segment_str);
 
-  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{1}), std::string("Bill"));
-  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{2}), std::string("Steve"));
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{0}), std::string("Bill"));
+  EXPECT_EQ(dict_segment_str->value_of_value_id(ValueID{1}), std::string("Steve"));
 
   EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{0}), int32_t{25});
   EXPECT_EQ(dict_segment_int->value_of_value_id(ValueID{1}), int32_t{100});
 
   EXPECT_THROW(dict_segment_str->value_of_value_id(dict_segment_str->null_value_id()), std::logic_error);
-  EXPECT_NO_THROW(dict_segment_int->value_of_value_id(dict_segment_str->null_value_id()));
+  EXPECT_THROW(dict_segment_int->value_of_value_id(dict_segment_int->null_value_id()), std::logic_error);
 }
 
 TEST_F(StorageDictionarySegmentTest, Access) {

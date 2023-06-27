@@ -97,18 +97,42 @@ TEST_F(OperatorsTableScanTest, DoubleScan) {
   auto scan_1 = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThanEquals, 1234);
   scan_1->execute();
 
-  auto scan_2 = std::make_shared<TableScan>(scan_1, ColumnID{1}, ScanType::OpLessThan, 457.9);
+  auto scan_2 = std::make_shared<TableScan>(scan_1, ColumnID{1}, ScanType::OpLessThan, 457.9f);
   scan_2->execute();
 
   EXPECT_TABLE_EQ(scan_2->get_output(), expected_result);
+}
+
+TEST_F(OperatorsTableScanTest, SearchValue) {
+  const auto search_value = AllTypeVariant{457.9f};
+  auto scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{1}, ScanType::OpLessThan, search_value);
+  EXPECT_EQ(scan->search_value(), search_value);
+}
+
+TEST_F(OperatorsTableScanTest, ColumnID) {
+  const auto column_id = ColumnID{1};
+  auto scan = std::make_shared<TableScan>(_table_wrapper, column_id, ScanType::OpLessThan, 450);
+  EXPECT_EQ(scan->column_id(), column_id);
+}
+
+TEST_F(OperatorsTableScanTest, ScanType) {
+  auto scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType{-1}, 90000);
+  EXPECT_THROW(scan->execute(), std::logic_error);
+
+  scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpLessThan, 90000);
+  EXPECT_EQ(scan->scan_type(), ScanType::OpLessThan);
+
+  scan = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThan, 90000);
+  EXPECT_EQ(scan->scan_type(), ScanType::OpGreaterThan);
 }
 
 TEST_F(OperatorsTableScanTest, EmptyResultScan) {
   auto scan_1 = std::make_shared<TableScan>(_table_wrapper, ColumnID{0}, ScanType::OpGreaterThan, 90000);
   scan_1->execute();
 
-  for (auto chunk_index = ChunkID{0}; chunk_index < scan_1->get_output()->chunk_count(); chunk_index++)
+  for (auto chunk_index = ChunkID{0}; chunk_index < scan_1->get_output()->chunk_count(); chunk_index++) {
     EXPECT_EQ(scan_1->get_output()->get_chunk(chunk_index)->column_count(), 2);
+  }
 }
 
 TEST_F(OperatorsTableScanTest, SingleScanReturnsCorrectRowCount) {
@@ -282,5 +306,4 @@ TEST_F(OperatorsTableScanTest, ScanOnReferenceSegmentWithNullValue) {
     ASSERT_COLUMN_EQ(scan_2->get_output(), ColumnID{1}, test.second);
   }
 }
-
 }  // namespace opossum

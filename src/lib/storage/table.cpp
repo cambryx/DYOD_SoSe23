@@ -13,6 +13,16 @@ Table::Table(const ChunkOffset init_target_chunk_size) : _target_chunk_size{init
   create_new_chunk();
 }
 
+Table::Table(const Table& reference_table, std::shared_ptr<Chunk> single_chunk)
+    : _column_names(reference_table._column_names),
+      _column_types(reference_table._column_types),
+      _is_column_nullable(reference_table._is_column_nullable),
+      _target_chunk_size(std::numeric_limits<ChunkOffset>::max() - 1),
+      _row_count(single_chunk->size()) {
+  _chunks.emplace_back(std::move(single_chunk));
+  _is_chunk_mutable.emplace_back(false);
+}
+
 void Table::add_column_definition(const std::string& name, const std::string& type, const bool nullable) {
   _column_names.emplace_back(name);
   _column_types.emplace_back(type);

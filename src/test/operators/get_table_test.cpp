@@ -16,9 +16,18 @@ class OperatorsGetTableTest : public BaseTest {
 
 TEST_F(OperatorsGetTableTest, GetOutput) {
   auto get_table_oper = std::make_shared<GetTable>("TableA");
+
+  EXPECT_EQ(get_table_oper->get_output(), nullptr);
+
   get_table_oper->execute();
+  EXPECT_THROW(get_table_oper->execute(), std::logic_error);  // Operators shall not be executed twice.
 
   EXPECT_EQ(get_table_oper->get_output(), _test_table);
+}
+
+TEST_F(OperatorsGetTableTest, GetTableName) {
+  auto get_table_oper = std::make_shared<GetTable>("TableA");
+  EXPECT_EQ(get_table_oper->table_name(), "TableA");
 }
 
 TEST_F(OperatorsGetTableTest, ThrowsUnknownTableName) {

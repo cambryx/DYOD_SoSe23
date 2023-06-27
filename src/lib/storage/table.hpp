@@ -15,6 +15,10 @@ class Table : private Noncopyable {
   // size minus 1. A table always holds at least one chunk.
   explicit Table(const ChunkOffset init_target_chunk_size = std::numeric_limits<ChunkOffset>::max() - 1);
 
+  // Creates a table that contains a single chunk with ReferenceSegments into the referenced table.
+  // The column data is copied from the referenced table.
+  Table(const Table& reference_table, std::shared_ptr<Chunk> single_chunk);
+
   // Returns the number of columns (cannot exceed ColumnID (uint16_t)).
   ColumnCount column_count() const;
 

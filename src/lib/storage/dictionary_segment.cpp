@@ -7,6 +7,7 @@
 #include "dictionary_segment.hpp"
 #include "fixed_width_integer_vector.hpp"
 #include "type_cast.hpp"
+#include "types.hpp"
 #include "utils/assert.hpp"
 #include "value_segment.hpp"
 
@@ -14,8 +15,8 @@ namespace opossum {
 
 namespace {
 
-std::shared_ptr<AbstractAttributeVector> make_fitting_attribute_vector(size_t size, size_t highest_value_id) {
-  const auto bits = std::bit_width(highest_value_id);
+std::shared_ptr<AbstractAttributeVector> make_fitting_attribute_vector(size_t size, size_t value_ids_in_use) {
+  const auto bits = std::bit_width(value_ids_in_use);
   Assert(bits <= 32, "Cannot construct FixedWidthIntegerVector for value ids with more than 32 bits.");
   if (bits <= 8) {
     return std::make_shared<FixedWidthIntegerVector<uint8_t>>(size);
@@ -42,28 +43,24 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<AbstractSegment>& 
     }
   }
 
-  // Start after the id for the NULL value (1 or 0, depending on whether this segment is nullable).
-  auto next_value_id = null_value_offset();
+  auto next_value_id = 0;
   for (auto& [value, value_id] : value_to_id) {
     value_id = next_value_id++;
   }
 
-  const auto attribute_vector = make_fitting_attribute_vector(values.size(), next_value_id - 1);
+  const auto value_ids_in_use = std::max(next_value_id + _is_nullable - 1, 0);
+  _attribute_vector = make_fitting_attribute_vector(values.size(), value_ids_in_use);
   for (auto value_index = size_t{0}, size = values.size(); value_index < size; ++value_index) {
     if (_is_nullable && value_segment->is_null(value_index)) {
-      attribute_vector->set(value_index, null_value_id());
+      _attribute_vector->set(value_index, null_value_id());
     } else {
-      attribute_vector->set(value_index, value_to_id.at(values[value_index]));
+      _attribute_vector->set(value_index, value_to_id.at(values[value_index]));
     }
   }
 
   for (auto& [value, value_id] : value_to_id) {
-    // Note: Here the null_value_offset is actually introduced: Although the first non-null element may have been
-    //       assigned id 1 (the first after null_value_id), it is still at index 0 in the dictionary vector. All later
-    //       accesses handle this by adding null_value_offset accordingly.
     _dictionary.emplace_back(std::move(value));
   }
-  _attribute_vector = attribute_vector;
 }
 
 template <typename T>
@@ -104,18 +101,18 @@ std::shared_ptr<const AbstractAttributeVector> DictionarySegment<T>::attribute_v
 
 template <typename T>
 ValueID DictionarySegment<T>::null_value_id() const {
-  return _is_nullable ? ValueID{0} : INVALID_VALUE_ID;
-}
+  if (!_is_nullable) {
+    return INVALID_VALUE_ID;
+  }
 
-template <typename T>
-ValueID DictionarySegment<T>::null_value_offset() const {
-  return _is_nullable ? ValueID{1} : ValueID{0};
+  // The maximum value representable within the attribute vector's width.
+  return ValueID{(1u << attribute_vector()->width() * 8) - 1};
 }
 
 template <typename T>
 const T DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
-  Assert(_is_nullable || value_id != null_value_id(), "Tried to get value for null_value_id.");
-  return dictionary().at(value_id - null_value_offset());
+  Assert(value_id != null_value_id(), "Tried to get value for null_value_id.");
+  return dictionary().at(value_id);
 }
 
 template <typename T>
@@ -124,7 +121,7 @@ ValueID DictionarySegment<T>::lower_bound(const T value) const {
   if (lower == _dictionary.end()) {
     return INVALID_VALUE_ID;
   }
-  return static_cast<ValueID>(std::distance(_dictionary.begin(), lower) + null_value_offset());
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), lower));
 }
 
 template <typename T>
@@ -146,7 +143,7 @@ ValueID DictionarySegment<T>::upper_bound(const T value) const {
   if (upper == _dictionary.end()) {
     return INVALID_VALUE_ID;
   }
-  return static_cast<ValueID>(std::distance(_dictionary.begin(), upper) + null_value_offset());
+  return static_cast<ValueID>(std::distance(_dictionary.begin(), upper));
 }
 
 template <typename T>
